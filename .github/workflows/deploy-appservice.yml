@@ -1,0 +1,51 @@
+name: Deploy App Service
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  infra-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      infra_ready: ${{ steps.gate.outputs.infra_ready }}
+
+    steps:
+      - name: Evaluate infrastructure readiness gate
+        id: gate
+        run: |
+          if [ "${{ vars.INFRA_READY }}" = "true" ]; then
+            echo "infra_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "infra_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report gate state
+        run: |
+          if [ "${{ steps.gate.outputs.infra_ready }}" = "true" ]; then
+            echo "INFRA_READY=true. Deployment job is allowed to run."
+          else
+            echo "INFRA_READY is not true. Azure deployment is intentionally skipped."
+          fi
+
+  deploy-placeholder:
+    runs-on: ubuntu-latest
+    needs: infra-gate
+    if: needs.infra-gate.outputs.infra_ready == 'true'
+
+    steps:
+      - name: Deployment gate passed
+        run: |
+          echo "Infrastructure readiness gate passed."
+          echo "Add Azure publish steps only after infra provisioning workflow is in place."
+
+  deploy-skipped:
+    runs-on: ubuntu-latest
+    needs: infra-gate
+    if: needs.infra-gate.outputs.infra_ready != 'true'
+
+    steps:
+      - name: Deployment skipped
+        run: echo "Skipped deploy-appservice workflow because vars.INFRA_READY != 'true'."

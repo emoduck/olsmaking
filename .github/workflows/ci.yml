@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Olsmaking.Bff/ClientApp/package-lock.json
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix src/Olsmaking.Bff/ClientApp
+
+      - name: Frontend typecheck
+        run: npm run typecheck --prefix src/Olsmaking.Bff/ClientApp
+
+      - name: Frontend lint
+        run: npm run lint --prefix src/Olsmaking.Bff/ClientApp
+
+      - name: Frontend tests
+        run: npm run test --prefix src/Olsmaking.Bff/ClientApp
+
+      - name: Frontend build
+        run: npm run build --prefix src/Olsmaking.Bff/ClientApp
+
+      - name: Restore .NET solution
+        run: dotnet restore Olsmaking.slnx
+
+      - name: Build .NET solution
+        run: dotnet build Olsmaking.slnx --configuration Release --no-restore
+
+      - name: Test .NET solution
+        run: dotnet test Olsmaking.slnx --configuration Release --no-build
+
+      - name: Publish BFF integration artifact
+        run: dotnet publish src/Olsmaking.Bff/Olsmaking.Bff.csproj --configuration Release

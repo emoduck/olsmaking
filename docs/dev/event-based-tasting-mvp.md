@@ -88,10 +88,10 @@ Specify the end-to-end MVP behavior for collaborative beer tasting events in Ols
 - CSS Modules and current style guide are used for all new feature UI.
 - `nb-NO` strings are available for all user-facing labels and messages.
 
-## Open Questions
-- Should `Closed` events allow owners to continue editing beers, or become read-only except metadata?
-- Should removed users be rejoinable by code while event remains open, or blocked until owner action?
-- Should open events be listed globally by default, or only when explicit `isListed` is true?
+## Policy Defaults (Locked)
+- `Closed` events block member review updates by default.
+- Removed users cannot rejoin by code; owner/admin must re-add them.
+- Open events are listed only when explicit `isListed=true` is set.
 
 ## Validation Plan
 - Frontend: `npm run typecheck`, `npm run lint`, `npm test -- --runInBand`, `npm run build`

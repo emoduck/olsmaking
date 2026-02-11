@@ -87,8 +87,10 @@ Define the MVP product and technical requirements for Olsmaking: a mobile-first 
 
 ## Open Questions
 - Which fields can `admin` modify globally in MVP (for example force-close event, remove beer, hide review)?
-- Should open-event listing be in MVP launch or behind a feature flag?
-- Should removed users be allowed to rejoin if code is still valid, or require owner action?
+
+## Policy Defaults (Locked)
+- Removed users are blocked from rejoin by code until owner/admin re-adds membership.
+- Open events are only globally listed when explicit `isListed=true` is set.
 
 ## Validation Plan
 - Frontend: `npm run typecheck`, `npm run lint`, `npm test -- --runInBand`, `npm run build`
