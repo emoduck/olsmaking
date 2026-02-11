@@ -1,0 +1,16 @@
+# .NET
+bin/
+obj/
+
+# Node
+node_modules/
+dist/
+storybook-static/
+
+# IDE / OS
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+.DS_Store

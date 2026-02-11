@@ -1,0 +1,57 @@
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 3rem;
+}
+
+.hero {
+  padding: 1.75rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #fff4e3, #ffd9b8);
+  box-shadow: 0 14px 24px -20px #7f5f4080;
+  animation: fade-in-up 500ms ease-out;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8a5b33;
+}
+
+.hero h1 {
+  margin: 0.6rem 0;
+  line-height: 1.2;
+  font-size: clamp(1.6rem, 5vw, 2.4rem);
+}
+
+.subtitle {
+  margin: 0;
+  color: #3f2a19;
+}
+
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.card-grid {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.9rem;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,28 @@
+:root {
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1f160f;
+  background: radial-gradient(circle at 10% 10%, #fff7ea 0%, #ffe8cd 38%, #ffdcb8 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+code {
+  font-family: "Consolas", "Courier New", monospace;
+  background: #ffffff99;
+  border-radius: 0.4rem;
+  padding: 0.08rem 0.3rem;
+}
