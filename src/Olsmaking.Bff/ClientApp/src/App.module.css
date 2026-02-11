@@ -1,4 +1,4 @@
-.app-shell {
+.appShell {
   max-width: 960px;
   margin: 0 auto;
   padding: 2.5rem 1rem 3rem;
@@ -9,7 +9,7 @@
   border-radius: 1rem;
   background: linear-gradient(135deg, #fff4e3, #ffd9b8);
   box-shadow: 0 14px 24px -20px #7f5f4080;
-  animation: fade-in-up 500ms ease-out;
+  animation: fadeInUp 500ms ease-out;
 }
 
 .eyebrow {
@@ -31,21 +31,21 @@
   color: #3f2a19;
 }
 
-.status-row {
+.statusRow {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
   margin-top: 1rem;
 }
 
-.card-grid {
+.cardGrid {
   margin-top: 1.25rem;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 0.9rem;
 }
 
-@keyframes fade-in-up {
+@keyframes fadeInUp {
   from {
     opacity: 0;
     transform: translateY(8px);

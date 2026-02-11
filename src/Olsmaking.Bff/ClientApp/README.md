@@ -46,3 +46,12 @@ Health check:
 - Storybook is local-only for now.
 - Focus stories on simple/presentational view components.
 - Do not treat container/page components as Storybook targets by default.
+
+## Styling Conventions
+- Standard: CSS Modules are the default approach for component and feature styles.
+- File naming: use `*.module.css` and import as `styles` in React components.
+- Global CSS: keep it limited to app-wide primitives only (reset/base/theme tokens), currently in `src/index.css`.
+- Inline style usage: allow only very minor one-off presentational tweaks, typically `<= 2` declarations.
+- Use CSS Modules instead of inline styles when styling is reused, conditional, stateful, responsive, themed, or more than trivial.
+- Migration policy: touch-and-migrate existing legacy global CSS to modules when modifying affected files.
+- Source of truth: `docs/adr/ADR-002-css-styling-standard.md`.

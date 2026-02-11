@@ -1,4 +1,4 @@
-.status-badge {
+.statusBadge {
   display: inline-flex;
   align-items: center;
   padding: 0.3rem 0.7rem;
@@ -8,17 +8,17 @@
   letter-spacing: 0.02em;
 }
 
-.status-badge--calm {
+.calm {
   color: #155084;
   background: #def0ff;
 }
 
-.status-badge--accent {
+.accent {
   color: #8f3800;
   background: #ffe8cf;
 }
 
-.status-badge--warning {
+.warning {
   color: #6f1f1f;
   background: #ffe1de;
 }

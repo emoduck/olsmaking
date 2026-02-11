@@ -1,4 +1,4 @@
-.info-card {
+.infoCard {
   border-radius: 0.9rem;
   padding: 1rem;
   background: #fffaf3;
@@ -6,16 +6,16 @@
   box-shadow: 0 12px 16px -18px #8e5f2f80;
 }
 
-.info-card h2 {
+.infoCard h2 {
   margin: 0;
   font-size: 1.1rem;
 }
 
-.info-card p {
+.infoCard p {
   margin: 0.6rem 0;
   color: #423122;
 }
 
-.info-card small {
+.infoCard small {
   color: #6f5239;
 }

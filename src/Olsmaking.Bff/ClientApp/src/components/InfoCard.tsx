@@ -1,4 +1,4 @@
-import './InfoCard.css'
+import styles from './InfoCard.module.css'
 
 type InfoCardProps = {
   title: string
@@ -8,7 +8,7 @@ type InfoCardProps = {
 
 export function InfoCard({ title, subtitle, footer }: InfoCardProps) {
   return (
-    <article className="info-card">
+    <article className={styles.infoCard}>
       <h2>{title}</h2>
       <p>{subtitle}</p>
       <small>{footer}</small>

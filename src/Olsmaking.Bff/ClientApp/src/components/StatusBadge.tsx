@@ -1,6 +1,12 @@
-import './StatusBadge.css'
+import styles from './StatusBadge.module.css'
 
 export type StatusTone = 'calm' | 'accent' | 'warning'
+
+const toneClassNames: Record<StatusTone, string> = {
+  calm: styles.calm,
+  accent: styles.accent,
+  warning: styles.warning,
+}
 
 type StatusBadgeProps = {
   label: string
@@ -9,7 +15,7 @@ type StatusBadgeProps = {
 
 export function StatusBadge({ label, tone }: StatusBadgeProps) {
   return (
-    <span className={`status-badge status-badge--${tone}`} aria-label={label}>
+    <span className={`${styles.statusBadge} ${toneClassNames[tone]}`} aria-label={label}>
       {label}
     </span>
   )
