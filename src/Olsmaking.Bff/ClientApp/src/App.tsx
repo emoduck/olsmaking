@@ -10,6 +10,7 @@ import {
   getCurrentUser,
   getEvent,
   getEventBeers,
+  getMyBeerReview,
   getMyEventFavorites,
   getMyEvents,
   joinEvent,
@@ -98,8 +99,55 @@ function App() {
   const [joinCode, setJoinCode] = useState(queryValues.joinCode)
 
   const selectedBeer = beerList.find((item) => item.id === selectedBeerId) ?? null
+  const selectedEventId = selectedEvent?.id ?? ''
+  const selectedBeerReviewId = selectedBeer?.id ?? ''
   const favoriteBeerIdSet = useMemo(() => new Set(favoriteBeerIds), [favoriteBeerIds])
   const favoritePendingBeerIdSet = useMemo(() => new Set(favoritePendingBeerIds), [favoritePendingBeerIds])
+
+  useEffect(() => {
+    let isActive = true
+
+    if (!selectedEventId || !selectedBeerReviewId) {
+      setReviewRating(3)
+      setReviewNotes('')
+      return () => {
+        isActive = false
+      }
+    }
+
+    async function hydrateReview() {
+      try {
+        const review = await getMyBeerReview(selectedEventId, selectedBeerReviewId)
+
+        if (!isActive) {
+          return
+        }
+
+        setReviewRating(review.rating)
+        setReviewNotes(review.notes ?? '')
+      } catch (error) {
+        if (!isActive) {
+          return
+        }
+
+        if (error instanceof ApiClientError && error.status === 404) {
+          setReviewRating(3)
+          setReviewNotes('')
+          return
+        }
+
+        setReviewRating(3)
+        setReviewNotes('')
+        setErrorMessage(getApiMessage(error))
+      }
+    }
+
+    void hydrateReview()
+
+    return () => {
+      isActive = false
+    }
+  }, [selectedBeerReviewId, selectedEventId])
 
   function upsertEventSummary(eventItem: EventSummary) {
     setEventList((previous) => {

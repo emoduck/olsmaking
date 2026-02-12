@@ -244,3 +244,9 @@ export function patchMyBeerReview(eventId: string, beerId: string, payload: Upse
     body: JSON.stringify(payload),
   })
 }
+
+export function getMyBeerReview(eventId: string, beerId: string): Promise<BeerReview> {
+  return requestJson<BeerReview>(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}/reviews/me`, {
+    method: 'GET',
+  })
+}

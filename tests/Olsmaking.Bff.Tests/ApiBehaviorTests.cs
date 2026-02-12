@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Olsmaking.Bff.Data;
 using Olsmaking.Bff.Tests.Infrastructure;
 using Xunit;
 
@@ -370,6 +373,126 @@ public sealed class ApiBehaviorTests
             "owner-sub");
 
         Assert.Equal(HttpStatusCode.NotFound, removeFavoriteWrongEventResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReviewMe_Get_ReturnsCurrentUserReview_WhenItExists()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Review Lookup Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+
+        using var addBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "Lookup Lager",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addBeerResponse.StatusCode);
+        var addBeerPayload = await addBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var beerId = addBeerPayload.GetProperty("id").GetGuid();
+
+        using var getCurrentUserResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/users/me",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.OK, getCurrentUserResponse.StatusCode);
+        var currentUserPayload = await getCurrentUserResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var ownerUserId = currentUserPayload.GetProperty("id").GetGuid();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OlsmakingDbContext>();
+            var now = DateTimeOffset.UtcNow;
+            var reviewId = Guid.NewGuid();
+
+            await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO BeerReviews
+                (Id, EventId, BeerId, UserId, Rating, Notes, AromaNotes, AppearanceNotes, FlavorNotes, CreatedUtc, UpdatedUtc, RowVersion)
+                VALUES
+                ({reviewId}, {eventId}, {beerId}, {ownerUserId}, {5}, {"Fresh and crisp"}, {null}, {null}, {null}, {now}, {now}, X'01')
+                """);
+        }
+
+        using var getReviewResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/events/{eventId}/beers/{beerId}/reviews/me",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.OK, getReviewResponse.StatusCode);
+        var reviewPayload = await getReviewResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(eventId, reviewPayload.GetProperty("eventId").GetGuid());
+        Assert.Equal(beerId, reviewPayload.GetProperty("beerId").GetGuid());
+        Assert.Equal(5, reviewPayload.GetProperty("rating").GetInt32());
+        Assert.Equal("Fresh and crisp", reviewPayload.GetProperty("notes").GetString());
+        Assert.True(reviewPayload.TryGetProperty("id", out _));
+        Assert.True(reviewPayload.TryGetProperty("userId", out _));
+        Assert.True(reviewPayload.TryGetProperty("createdUtc", out _));
+        Assert.True(reviewPayload.TryGetProperty("updatedUtc", out _));
+    }
+
+    [Fact]
+    public async Task ReviewMe_Get_ReturnsNotFound_WhenCurrentUserHasNoReview()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Review Missing Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+
+        using var addBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "No Review Stout",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addBeerResponse.StatusCode);
+        var addBeerPayload = await addBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var beerId = addBeerPayload.GetProperty("id").GetGuid();
+
+        using var getMissingReviewResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/events/{eventId}/beers/{beerId}/reviews/me",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NotFound, getMissingReviewResponse.StatusCode);
     }
 
     private static Task<HttpResponseMessage> SendAsUserAsync(

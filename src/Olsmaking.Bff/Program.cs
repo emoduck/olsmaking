@@ -728,6 +728,57 @@ if (auth0Settings.IsConfigured)
         });
     }).RequireAuthorization();
 
+    eventsGroup.MapGet("/{eventId:guid}/beers/{beerId:guid}/reviews/me", async (Guid eventId, Guid beerId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var eventAccessResult = await GetEventAccessAsync(eventId, currentUser.Id, user.HasAdminScope(), dbContext, cancellationToken);
+
+        if (eventAccessResult.Error is not null)
+        {
+            return eventAccessResult.Error;
+        }
+
+        var beerExists = await dbContext.EventBeers
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == beerId && x.EventId == eventId, cancellationToken);
+
+        if (!beerExists)
+        {
+            return Results.NotFound();
+        }
+
+        var review = await dbContext.BeerReviews
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.EventId == eventId && x.BeerId == beerId && x.UserId == currentUser.Id, cancellationToken);
+
+        if (review is null)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.Ok(new
+        {
+            Id = review.Id,
+            EventId = review.EventId,
+            BeerId = review.BeerId,
+            UserId = review.UserId,
+            Rating = review.Rating,
+            Notes = review.Notes,
+            AromaNotes = review.AromaNotes,
+            AppearanceNotes = review.AppearanceNotes,
+            FlavorNotes = review.FlavorNotes,
+            CreatedUtc = review.CreatedUtc,
+            UpdatedUtc = review.UpdatedUtc,
+        });
+    }).RequireAuthorization();
+
     eventsGroup.MapPatch("/{eventId:guid}/beers/{beerId:guid}/reviews/me", async (Guid eventId, Guid beerId, JsonElement requestBody, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
     {
         var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
@@ -1028,6 +1079,7 @@ else
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/favorite", AuthUnavailable);
     eventsGroup.MapDelete("/{eventId:guid}/beers/{beerId:guid}/favorite", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/reviews", AuthUnavailable);
+    eventsGroup.MapGet("/{eventId:guid}/beers/{beerId:guid}/reviews/me", AuthUnavailable);
     eventsGroup.MapPatch("/{eventId:guid}/beers/{beerId:guid}/reviews/me", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/join", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/regenerate-code", AuthUnavailable);
