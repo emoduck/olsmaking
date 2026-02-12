@@ -98,7 +98,7 @@ const myEvent = {
 
 const openEvent = {
   id: 'event-open-1',
-  name: 'Apen smaking',
+  name: 'Åpen smaking',
   status: 1,
   visibility: 1,
   isListed: true,
@@ -209,8 +209,8 @@ describe('App core flows', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
     expect(await screen.findByText('Min smaking')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Apne' }))
-    expect(await screen.findByText('Apen smaking')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Åpne' }))
+    expect(await screen.findByText('Åpen smaking')).toBeInTheDocument()
   })
 
   it('shows favorites from the global favorites endpoint', async () => {
@@ -227,7 +227,7 @@ describe('App core flows', () => {
 
     expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
     expect(screen.getByText('Arrangement: Min smaking')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Apen arbeidsflate' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Åpen arbeidsflate' })).toBeInTheDocument()
   })
 
   it('renders profile tab with read-only email and prefilled nickname', async () => {
@@ -297,7 +297,7 @@ describe('App core flows', () => {
     render(<App />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Apen arbeidsflate' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Åpen arbeidsflate' }))
 
     await waitFor(() => {
       expect(getCallByMethodAndPath(fetchMock, 'GET', '/api/events/event-1')).toBeTruthy()

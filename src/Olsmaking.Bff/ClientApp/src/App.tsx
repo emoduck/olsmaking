@@ -36,7 +36,7 @@ type OverviewFilter = 'mine' | 'open'
 
 const STATUS_LABELS: Record<number, string> = {
   0: 'Utkast',
-  1: 'Apent',
+  1: 'Åpent',
   2: 'Lukket',
   3: 'Arkivert',
 }
@@ -304,7 +304,7 @@ function App() {
     try {
       await patchEventStatus(selectedEvent.id, nextStatus)
       await loadEventWorkspace(selectedEvent.id)
-      setFeedbackMessage(nextStatus === 'closed' ? 'Arrangementet er na lukket.' : 'Arrangementet er na apent.')
+      setFeedbackMessage(nextStatus === 'closed' ? 'Arrangementet er nå lukket.' : 'Arrangementet er nå åpent.')
     } catch (error) {
       setErrorMessage(getApiMessage(error))
     } finally {
@@ -436,7 +436,7 @@ function App() {
     setErrorMessage(null)
 
     if (!createName.trim()) {
-      setErrorMessage('Skriv inn et navn pa arrangementet.')
+      setErrorMessage('Skriv inn et navn på arrangementet.')
       return
     }
 
@@ -460,7 +460,7 @@ function App() {
     setErrorMessage(null)
 
     if (!joinEventId.trim() || !joinCode.trim()) {
-      setErrorMessage('Fyll inn bade arrangement-ID og bli-med-kode.')
+      setErrorMessage('Fyll inn både arrangement-ID og bli-med-kode.')
       return
     }
 
@@ -507,12 +507,12 @@ function App() {
     setErrorMessage(null)
 
     if (!selectedEvent) {
-      setErrorMessage('Velg et arrangement forst.')
+      setErrorMessage('Velg et arrangement først.')
       return
     }
 
     if (!beerName.trim()) {
-      setErrorMessage('Skriv inn et navn pa ol.')
+      setErrorMessage('Skriv inn et navn på øl.')
       return
     }
 
@@ -520,7 +520,7 @@ function App() {
     if (beerAbv.trim()) {
       const parsed = Number(beerAbv.replace(',', '.'))
       if (!Number.isFinite(parsed)) {
-        setErrorMessage('ABV ma vare et gyldig tall, for eksempel 5.2.')
+        setErrorMessage('ABV må være et gyldig tall, for eksempel 5.2.')
         return
       }
 
@@ -542,7 +542,7 @@ function App() {
       setBeerBrewery('')
       setBeerStyle('')
       setBeerAbv('')
-      setFeedbackMessage('Ol lagt til i arrangementet.')
+      setFeedbackMessage('Øl lagt til i arrangementet.')
     } catch (error) {
       setErrorMessage(getApiMessage(error))
     } finally {
@@ -556,7 +556,7 @@ function App() {
     setErrorMessage(null)
 
     if (!selectedEvent || !selectedBeer) {
-      setErrorMessage('Velg et arrangement og en ol forst.')
+      setErrorMessage('Velg et arrangement og en øl først.')
       return
     }
 
@@ -598,12 +598,12 @@ function App() {
     const trimmedNickname = profileNickname.trim()
 
     if (!trimmedNickname) {
-      setErrorMessage('Kallenavn kan ikke vare tomt.')
+      setErrorMessage('Kallenavn kan ikke være tomt.')
       return
     }
 
     if (trimmedNickname.length > 100) {
-      setErrorMessage('Kallenavn kan ikke vare lengre enn 100 tegn.')
+      setErrorMessage('Kallenavn kan ikke være lengre enn 100 tegn.')
       return
     }
 
@@ -624,7 +624,7 @@ function App() {
     return (
       <main className={styles.appShell}>
         <section className={styles.panel}>
-          <h1 className={styles.title}>Laster Olsmaking</h1>
+          <h1 className={styles.title}>Laster Ølsmaking</h1>
           <p className={styles.muted}>Henter brukerstatus...</p>
         </section>
       </main>
@@ -638,7 +638,7 @@ function App() {
           <h1 className={styles.title}>Kunne ikke laste appen</h1>
           <p className={styles.error}>{errorMessage ?? 'Noe gikk galt. Prøv igjen.'}</p>
           <a className={styles.buttonPrimary} href={loginUrl}>
-            Logg inn pa nytt
+            Logg inn på nytt
           </a>
         </section>
       </main>
@@ -649,9 +649,9 @@ function App() {
     return (
       <main className={styles.appShell}>
         <section className={styles.panel}>
-          <p className={styles.kicker}>Olsmaking</p>
-          <h1 className={styles.title}>Logg inn for a starte smaking</h1>
-          <p className={styles.muted}>Du ma vare innlogget for a opprette eller bli med i arrangement.</p>
+          <p className={styles.kicker}>Ølsmaking</p>
+          <h1 className={styles.title}>Logg inn for å starte smaking</h1>
+          <p className={styles.muted}>Du må være innlogget for å opprette eller bli med i arrangement.</p>
           <a className={styles.buttonPrimary} href={loginUrl}>
             Logg inn
           </a>
@@ -664,7 +664,7 @@ function App() {
     <main className={styles.appShell}>
       <header className={styles.topBar}>
         <div>
-          <p className={styles.kicker}>Olsmaking</p>
+          <p className={styles.kicker}>Ølsmaking</p>
           <h1 className={styles.title}>Hei {user?.nickname ?? 'smaker'}</h1>
         </div>
         <a className={styles.linkButton} href={loginUrl}>
@@ -701,7 +701,7 @@ function App() {
                     setOverviewFilter('open')
                   }}
                 >
-                  Apne
+                  Åpne
                 </button>
               </div>
             </div>
@@ -731,8 +731,8 @@ function App() {
             ) : (
               <p className={styles.muted}>
                 {overviewFilter === 'mine'
-                  ? 'Ingen arrangementer enna. Opprett et nytt for a starte.'
-                  : 'Ingen apne arrangementer akkurat na.'}
+                  ? 'Ingen arrangementer ennå. Opprett et nytt for å starte.'
+                  : 'Ingen åpne arrangementer akkurat nå.'}
               </p>
             )}
           </section>
@@ -763,7 +763,7 @@ function App() {
                       }}
                       disabled={workspaceActionPending || selectedEvent.status === 1}
                     >
-                      Apne arrangement
+                      Åpne arrangement
                     </button>
                     <button
                       type="button"
@@ -810,7 +810,7 @@ function App() {
               </section>
 
               <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>Ol i arrangementet</h2>
+                <h2 className={styles.sectionTitle}>Øl i arrangementet</h2>
                 {beerList.length ? (
                   <ul className={styles.beerList}>
                     {beerList.map((beer) => (
@@ -858,12 +858,12 @@ function App() {
                     ))}
                   </ul>
                 ) : (
-                  <p className={styles.muted}>Ingen ol registrert enna.</p>
+                  <p className={styles.muted}>Ingen øl registrert ennå.</p>
                 )}
 
                 <form className={styles.form} onSubmit={handleAddBeer}>
                   <label className={styles.label} htmlFor="beer-name">
-                    Navn pa ol
+                    Navn på øl
                   </label>
                   <input
                     id="beer-name"
@@ -917,7 +917,7 @@ function App() {
                   />
 
                   <button type="submit" className={styles.buttonPrimary} disabled={addBeerPending}>
-                    {addBeerPending ? 'Legger til...' : 'Legg til ol'}
+                    {addBeerPending ? 'Legger til...' : 'Legg til øl'}
                   </button>
                 </form>
               </section>
@@ -926,7 +926,7 @@ function App() {
                 <h2 className={styles.sectionTitle}>Din vurdering</h2>
                 {selectedBeer ? (
                   <form className={styles.form} onSubmit={handleReviewSubmit}>
-                    <p className={styles.eventMeta}>Valgt ol: {selectedBeer.name}</p>
+                    <p className={styles.eventMeta}>Valgt øl: {selectedBeer.name}</p>
 
                     <label className={styles.label} htmlFor="review-rating">
                       Poeng: {reviewRating} / 6
@@ -943,7 +943,7 @@ function App() {
                         setReviewRating(Number(event.target.value))
                       }}
                     />
-                    <p className={styles.muted}>Flytt slideren for a velge poeng fra 1 til 6.</p>
+                    <p className={styles.muted}>Flytt slideren for å velge poeng fra 1 til 6.</p>
 
                     <label className={styles.label} htmlFor="review-notes">
                       Notater
@@ -1006,7 +1006,7 @@ function App() {
                     </button>
                   </form>
                 ) : (
-                  <p className={styles.muted}>Velg en ol for a registrere vurdering.</p>
+                  <p className={styles.muted}>Velg en øl for å registrere vurdering.</p>
                 )}
               </section>
             </>
@@ -1038,13 +1038,13 @@ function App() {
                       void handleOpenFavoriteWorkspace(favorite.eventId, favorite.eventName)
                     }}
                   >
-                    Apen arbeidsflate
+                    Åpen arbeidsflate
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className={styles.muted}>Ingen favoritter enna.</p>
+            <p className={styles.muted}>Ingen favoritter ennå.</p>
           )}
         </section>
       ) : activeTab === 'profil' ? (
@@ -1081,7 +1081,7 @@ function App() {
             <h2 className={styles.sectionTitle}>Opprett arrangement</h2>
             <form className={styles.form} onSubmit={handleCreate}>
               <label className={styles.label} htmlFor="event-name">
-                Navn pa arrangement
+                Navn på arrangement
               </label>
               <input
                 id="event-name"
