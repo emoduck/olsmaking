@@ -203,6 +203,25 @@ export function getEvent(eventId: string): Promise<EventDetails> {
   return requestJson<EventDetails>(`/api/events/${encodeURIComponent(eventId)}`, { method: 'GET' })
 }
 
+export function patchEventStatus(eventId: string, status: 'open' | 'closed'): Promise<void> {
+  return requestVoid(`/api/events/${encodeURIComponent(eventId)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
+export function removeParticipant(eventId: string, userId: string): Promise<void> {
+  return requestVoid(`/api/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function restoreParticipant(eventId: string, userId: string): Promise<void> {
+  return requestVoid(`/api/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(userId)}/restore`, {
+    method: 'POST',
+  })
+}
+
 export function getMyEvents(): Promise<EventSummary[]> {
   return requestJson<EventSummary[]>('/api/events/mine', { method: 'GET' })
 }

@@ -1053,6 +1053,114 @@ if (auth0Settings.IsConfigured)
         });
     }).RequireAuthorization();
 
+    eventsGroup.MapPatch("/{eventId:guid}/status", async (Guid eventId, UpdateEventStatusRequest request, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var @event = await dbContext.Events.SingleOrDefaultAsync(x => x.Id == eventId, cancellationToken);
+
+        if (@event is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!user.HasAdminScope() && @event.OwnerUserId != currentUser.Id)
+        {
+            return Results.Forbid();
+        }
+
+        if (!Enum.TryParse<EventStatus>(request.Status, ignoreCase: true, out var requestedStatus)
+            || (requestedStatus != EventStatus.Open && requestedStatus != EventStatus.Closed))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["status"] = ["Status must be either 'open' or 'closed'."],
+            });
+        }
+
+        if (@event.Status != EventStatus.Open && @event.Status != EventStatus.Closed)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Status transition is not allowed",
+                detail: "This event status cannot be changed through the MVP status endpoint.");
+        }
+
+        if (@event.Status != requestedStatus)
+        {
+            @event.Status = requestedStatus;
+            @event.UpdatedUtc = DateTimeOffset.UtcNow;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return Results.Ok(new
+        {
+            EventId = @event.Id,
+            Status = @event.Status,
+            UpdatedUtc = @event.UpdatedUtc,
+        });
+    }).RequireAuthorization();
+
+    eventsGroup.MapPost("/{eventId:guid}/participants/{userId:guid}/restore", async (Guid eventId, Guid userId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var @event = await dbContext.Events.SingleOrDefaultAsync(x => x.Id == eventId, cancellationToken);
+
+        if (@event is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!user.HasAdminScope() && @event.OwnerUserId != currentUser.Id)
+        {
+            return Results.Forbid();
+        }
+
+        if (userId == @event.OwnerUserId)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["userId"] = ["Owner cannot be restored through this endpoint."],
+            });
+        }
+
+        var participant = await dbContext.EventParticipants
+            .SingleOrDefaultAsync(x => x.EventId == @event.Id && x.UserId == userId, cancellationToken);
+
+        if (participant is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (participant.Status != EventParticipantStatus.Removed)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Participant is not removed",
+                detail: "Only removed participants can be restored.");
+        }
+
+        participant.Status = EventParticipantStatus.Active;
+        participant.RemovedUtc = null;
+        @event.UpdatedUtc = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Results.NoContent();
+    }).RequireAuthorization();
+
     eventsGroup.MapDelete("/{eventId:guid}/participants/{userId:guid}", async (Guid eventId, Guid userId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
     {
         var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
@@ -1121,6 +1229,8 @@ else
     eventsGroup.MapPatch("/{eventId:guid}/beers/{beerId:guid}/reviews/me", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/join", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/regenerate-code", AuthUnavailable);
+    eventsGroup.MapPatch("/{eventId:guid}/status", AuthUnavailable);
+    eventsGroup.MapPost("/{eventId:guid}/participants/{userId:guid}/restore", AuthUnavailable);
     eventsGroup.MapDelete("/{eventId:guid}/participants/{userId:guid}", AuthUnavailable);
 }
 
@@ -1288,6 +1398,8 @@ internal sealed record JoinEventRequest(string? JoinCode);
 internal sealed record CreateEventBeerRequest(string? Name, string? Brewery, string? Style, decimal? Abv);
 
 internal sealed record CreateBeerReviewRequest(int? Rating, string? Notes, string? AromaNotes, string? AppearanceNotes, string? FlavorNotes);
+
+internal sealed record UpdateEventStatusRequest(string? Status);
 
 public partial class Program
 {

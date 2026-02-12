@@ -15,7 +15,10 @@ import {
   getMyEvents,
   getOpenEvents,
   joinEvent,
+  patchEventStatus,
   patchMyBeerReview,
+  removeParticipant,
+  restoreParticipant,
   removeBeerFavorite,
   type CurrentUser,
   type EventBeer,
@@ -75,6 +78,8 @@ function App() {
   const [overviewFilter, setOverviewFilter] = useState<OverviewFilter>('mine')
 
   const [workspacePending, setWorkspacePending] = useState(false)
+  const [workspaceActionPending, setWorkspaceActionPending] = useState(false)
+  const [participantActionPendingUserId, setParticipantActionPendingUserId] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null)
   const [beerList, setBeerList] = useState<EventBeer[]>([])
   const [favoriteBeerIds, setFavoriteBeerIds] = useState<string[]>([])
@@ -111,6 +116,8 @@ function App() {
   const favoriteBeerIdSet = useMemo(() => new Set(favoriteBeerIds), [favoriteBeerIds])
   const favoritePendingBeerIdSet = useMemo(() => new Set(favoritePendingBeerIds), [favoritePendingBeerIds])
   const overviewList = overviewFilter === 'mine' ? myEventList : openEventList
+  const currentUserRole = selectedEvent?.currentUserRole.toLowerCase() ?? ''
+  const canManageEvent = currentUserRole === 'owner' || currentUserRole === 'admin'
 
   useEffect(() => {
     let isActive = true
@@ -253,6 +260,56 @@ function App() {
       setErrorMessage(getApiMessage(error))
     } finally {
       setFavoritePendingBeerIds((previous) => previous.filter((item) => item !== beerId))
+    }
+  }
+
+  async function handleEventStatusChange(nextStatus: 'open' | 'closed') {
+    if (!selectedEvent || workspaceActionPending) {
+      return
+    }
+
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+    setWorkspaceActionPending(true)
+
+    try {
+      await patchEventStatus(selectedEvent.id, nextStatus)
+      await loadEventWorkspace(selectedEvent.id)
+      setFeedbackMessage(nextStatus === 'closed' ? 'Arrangementet er na lukket.' : 'Arrangementet er na apent.')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setWorkspaceActionPending(false)
+    }
+  }
+
+  async function handleParticipantAction(userId: string, status: number, nickname: string | null) {
+    if (!selectedEvent || workspaceActionPending || participantActionPendingUserId) {
+      return
+    }
+
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+    setWorkspaceActionPending(true)
+    setParticipantActionPendingUserId(userId)
+
+    const displayName = nickname ?? 'Bruker'
+
+    try {
+      if (status === 2) {
+        await restoreParticipant(selectedEvent.id, userId)
+        setFeedbackMessage(`${displayName} er gjenopprettet i arrangementet.`)
+      } else {
+        await removeParticipant(selectedEvent.id, userId)
+        setFeedbackMessage(`${displayName} er fjernet fra arrangementet.`)
+      }
+
+      await loadEventWorkspace(selectedEvent.id)
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setWorkspaceActionPending(false)
+      setParticipantActionPendingUserId('')
     }
   }
 
@@ -575,13 +632,57 @@ function App() {
                 <p className={styles.eventMeta}>Status: {STATUS_LABELS[selectedEvent.status] ?? 'Ukjent'}</p>
                 <p className={styles.eventMeta}>Din rolle: {selectedEvent.currentUserRole}</p>
                 <p className={styles.eventMeta}>Deltakere: {selectedEvent.participants.length}</p>
+                {canManageEvent ? (
+                  <div className={styles.workspaceActions}>
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => {
+                        void handleEventStatusChange('open')
+                      }}
+                      disabled={workspaceActionPending || selectedEvent.status === 1}
+                    >
+                      Apne arrangement
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => {
+                        void handleEventStatusChange('closed')
+                      }}
+                      disabled={workspaceActionPending || selectedEvent.status === 2}
+                    >
+                      Lukk arrangement
+                    </button>
+                  </div>
+                ) : null}
                 <ul className={styles.participantList}>
                   {selectedEvent.participants.map((participant) => (
                     <li key={participant.userId} className={styles.participantRow}>
-                      <span>{participant.nickname ?? 'Ukjent bruker'}</span>
-                      <span className={styles.participantMeta}>
-                        {PARTICIPANT_STATUS_LABELS[participant.status] ?? `Status ${participant.status}`}
-                      </span>
+                      <div className={styles.participantBody}>
+                        <span>{participant.nickname ?? 'Ukjent bruker'}</span>
+                        <span className={styles.participantMeta}>
+                          {PARTICIPANT_STATUS_LABELS[participant.status] ?? `Status ${participant.status}`}
+                        </span>
+                      </div>
+                      {canManageEvent && participant.userId !== selectedEvent.ownerUserId ? (
+                        participant.status === 1 || participant.status === 2 ? (
+                          <button
+                            type="button"
+                            className={styles.buttonSecondary}
+                            onClick={() => {
+                              void handleParticipantAction(participant.userId, participant.status, participant.nickname)
+                            }}
+                            disabled={workspaceActionPending}
+                          >
+                            {participantActionPendingUserId === participant.userId
+                              ? 'Lagrer...'
+                              : participant.status === 2
+                                ? 'Gjenopprett'
+                                : 'Fjern'}
+                          </button>
+                        ) : null
+                      ) : null}
                     </li>
                   ))}
                 </ul>

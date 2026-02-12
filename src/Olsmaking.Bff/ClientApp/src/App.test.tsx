@@ -117,7 +117,7 @@ const eventDetails = {
   ownerUserId: 'user-1',
   createdUtc: '2026-01-01T09:00:00Z',
   updatedUtc: '2026-01-01T10:00:00Z',
-  currentUserRole: 'Owner',
+  currentUserRole: 'owner',
   participants: [
     {
       userId: 'user-1',
@@ -126,6 +126,36 @@ const eventDetails = {
       joinedUtc: '2026-01-01T10:00:00Z',
       removedUtc: null,
       nickname: 'Testbruker',
+    },
+  ],
+}
+
+const managedEventDetails = {
+  ...eventDetails,
+  participants: [
+    {
+      userId: 'user-1',
+      role: 2,
+      status: 1,
+      joinedUtc: '2026-01-01T10:00:00Z',
+      removedUtc: null,
+      nickname: 'Testbruker',
+    },
+    {
+      userId: 'user-2',
+      role: 1,
+      status: 1,
+      joinedUtc: '2026-01-01T10:10:00Z',
+      removedUtc: null,
+      nickname: 'Deltaker to',
+    },
+    {
+      userId: 'user-3',
+      role: 1,
+      status: 2,
+      joinedUtc: '2026-01-01T10:20:00Z',
+      removedUtc: '2026-01-01T10:30:00Z',
+      nickname: 'Deltaker tre',
     },
   ],
 }
@@ -238,6 +268,98 @@ describe('App core flows', () => {
 
     await waitFor(() => {
       expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1/beers/beer-1/favorite')).toBeTruthy()
+    })
+  })
+
+  it('lets owner close event via status endpoint', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'PATCH',
+        url: '/api/events/event-1/status',
+        response: emptyResponse(200),
+      },
+      {
+        url: '/api/events/event-1',
+        response: jsonResponse({
+          ...managedEventDetails,
+          status: 2,
+        }),
+      },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Lukk arrangement' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'PATCH', '/api/events/event-1/status')).toBeTruthy()
+    })
+  })
+
+  it('lets owner remove and restore participants', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'DELETE',
+        url: '/api/events/event-1/participants/user-2',
+        response: emptyResponse(204),
+      },
+      {
+        url: '/api/events/event-1',
+        response: jsonResponse(managedEventDetails),
+      },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        method: 'POST',
+        url: '/api/events/event-1/participants/user-3/restore',
+        response: emptyResponse(204),
+      },
+      {
+        url: '/api/events/event-1',
+        response: jsonResponse(managedEventDetails),
+      },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Fjern' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1/participants/user-2')).toBeTruthy()
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Gjenopprett' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/participants/user-3/restore')).toBeTruthy()
     })
   })
 

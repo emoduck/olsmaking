@@ -278,6 +278,184 @@ public sealed class ApiBehaviorTests
     }
 
     [Fact]
+    public async Task Owner_CanCloseAndReopenEvent()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Status Flow Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+
+        using var closeEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Patch,
+            $"/api/events/{eventId}/status",
+            "owner-sub",
+            new
+            {
+                status = "closed",
+            });
+
+        Assert.Equal(HttpStatusCode.OK, closeEventResponse.StatusCode);
+        var closePayload = await closeEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal((int)EventStatus.Closed, closePayload.GetProperty("status").GetInt32());
+
+        using var reopenEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Patch,
+            $"/api/events/{eventId}/status",
+            "owner-sub",
+            new
+            {
+                status = "OPEN",
+            });
+
+        Assert.Equal(HttpStatusCode.OK, reopenEventResponse.StatusCode);
+        var reopenPayload = await reopenEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal((int)EventStatus.Open, reopenPayload.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task NonOwner_CannotChangeEventStatus()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Forbidden Status Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+
+        using var updateStatusResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Patch,
+            $"/api/events/{eventId}/status",
+            "member-sub",
+            new
+            {
+                status = "closed",
+            });
+
+        Assert.Equal(HttpStatusCode.Forbidden, updateStatusResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task RestoreParticipant_AllowsAccessAndMakesJoinIdempotent_AfterRemoval()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Restore Flow Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var eventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = eventPayload.GetProperty("id").GetGuid();
+        var joinCode = eventPayload.GetProperty("joinCode").GetString();
+
+        using var memberMeResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/users/me",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.OK, memberMeResponse.StatusCode);
+        var memberPayload = await memberMeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var memberUserId = memberPayload.GetProperty("id").GetGuid();
+
+        using var initialJoinResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/join",
+            "member-sub",
+            new
+            {
+                joinCode,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, initialJoinResponse.StatusCode);
+        var initialJoinPayload = await initialJoinResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(initialJoinPayload.GetProperty("joined").GetBoolean());
+
+        using var removeParticipantResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/participants/{memberUserId}",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, removeParticipantResponse.StatusCode);
+
+        using var blockedJoinResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/join",
+            "member-sub",
+            new
+            {
+                joinCode,
+            });
+
+        Assert.Equal(HttpStatusCode.Forbidden, blockedJoinResponse.StatusCode);
+
+        using var restoreParticipantResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/participants/{memberUserId}/restore",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, restoreParticipantResponse.StatusCode);
+
+        using var joinAfterRestoreResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/join",
+            "member-sub",
+            new
+            {
+                joinCode,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, joinAfterRestoreResponse.StatusCode);
+        var joinAfterRestorePayload = await joinAfterRestoreResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(joinAfterRestorePayload.GetProperty("joined").GetBoolean());
+
+        using var eventDetailsResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/events/{eventId}",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.OK, eventDetailsResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task Authenticated_EventJoinAndReviewFlow_EnforcesBasicGuards()
     {
         using var factory = new OlsmakingApiFactory(auth0Configured: true);
@@ -679,12 +857,18 @@ public sealed class ApiBehaviorTests
         HttpMethod method,
         string requestUri,
         string subject,
-        object? body = null)
+        object? body = null,
+        string? scopes = null)
     {
         var request = new HttpRequestMessage(method, requestUri);
         request.Headers.TryAddWithoutValidation("X-Test-Auth-Sub", subject);
         request.Headers.TryAddWithoutValidation("X-Test-Auth-Email", $"{subject}@example.com");
         request.Headers.TryAddWithoutValidation("X-Test-Auth-Nickname", subject);
+
+        if (!string.IsNullOrWhiteSpace(scopes))
+        {
+            request.Headers.TryAddWithoutValidation("X-Test-Auth-Scopes", scopes);
+        }
 
         if (body is not null)
         {
