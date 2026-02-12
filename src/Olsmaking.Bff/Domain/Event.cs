@@ -27,4 +27,6 @@ public sealed class Event
     public ICollection<EventBeer> Beers { get; set; } = new List<EventBeer>();
 
     public ICollection<BeerReview> BeerReviews { get; set; } = new List<BeerReview>();
+
+    public ICollection<BeerFavorite> BeerFavorites { get; set; } = new List<BeerFavorite>();
 }

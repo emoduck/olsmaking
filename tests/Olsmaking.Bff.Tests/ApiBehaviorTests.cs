@@ -186,6 +186,192 @@ public sealed class ApiBehaviorTests
         Assert.Equal(HttpStatusCode.BadRequest, invalidReviewResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task Favorites_AddRemoveAndRead_AreIdempotent_AndGuardedByMembership()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Favorites Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+        var joinCode = createEventPayload.GetProperty("joinCode").GetString();
+
+        using var addBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "Favorite Candidate",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addBeerResponse.StatusCode);
+        var addBeerPayload = await addBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var beerId = addBeerPayload.GetProperty("id").GetGuid();
+
+        using var favoriteBeforeJoinResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers/{beerId}/favorite",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.Forbidden, favoriteBeforeJoinResponse.StatusCode);
+
+        using var joinResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/join",
+            "member-sub",
+            new
+            {
+                joinCode,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+
+        using var initialGetFavoritesResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/events/{eventId}/favorites/me",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.OK, initialGetFavoritesResponse.StatusCode);
+        var initialFavorites = await initialGetFavoritesResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, initialFavorites.ValueKind);
+        Assert.Empty(initialFavorites.EnumerateArray());
+
+        using var firstFavoriteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers/{beerId}/favorite",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, firstFavoriteResponse.StatusCode);
+
+        using var secondFavoriteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers/{beerId}/favorite",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, secondFavoriteResponse.StatusCode);
+
+        using var getFavoritesAfterAddResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/events/{eventId}/favorites/me",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.OK, getFavoritesAfterAddResponse.StatusCode);
+        var favoritesAfterAdd = await getFavoritesAfterAddResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, favoritesAfterAdd.GetArrayLength());
+        Assert.Equal(beerId, favoritesAfterAdd[0].GetGuid());
+
+        using var firstDeleteFavoriteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/beers/{beerId}/favorite",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, firstDeleteFavoriteResponse.StatusCode);
+
+        using var secondDeleteFavoriteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/beers/{beerId}/favorite",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, secondDeleteFavoriteResponse.StatusCode);
+
+        using var getFavoritesAfterDeleteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/events/{eventId}/favorites/me",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.OK, getFavoritesAfterDeleteResponse.StatusCode);
+        var favoritesAfterDelete = await getFavoritesAfterDeleteResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Array, favoritesAfterDelete.ValueKind);
+        Assert.Empty(favoritesAfterDelete.EnumerateArray());
+    }
+
+    [Fact]
+    public async Task FavoriteEndpoints_ReturnNotFound_WhenBeerIsNotInEvent()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createFirstEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Event One",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createFirstEventResponse.StatusCode);
+        var firstEventPayload = await createFirstEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var firstEventId = firstEventPayload.GetProperty("id").GetGuid();
+
+        using var createSecondEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Event Two",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createSecondEventResponse.StatusCode);
+        var secondEventPayload = await createSecondEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var secondEventId = secondEventPayload.GetProperty("id").GetGuid();
+
+        using var addBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{firstEventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "Cross Event Beer",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addBeerResponse.StatusCode);
+        var beerPayload = await addBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var beerId = beerPayload.GetProperty("id").GetGuid();
+
+        using var addFavoriteWrongEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{secondEventId}/beers/{beerId}/favorite",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NotFound, addFavoriteWrongEventResponse.StatusCode);
+
+        using var removeFavoriteWrongEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{secondEventId}/beers/{beerId}/favorite",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NotFound, removeFavoriteWrongEventResponse.StatusCode);
+    }
+
     private static Task<HttpResponseMessage> SendAsUserAsync(
         HttpClient client,
         HttpMethod method,

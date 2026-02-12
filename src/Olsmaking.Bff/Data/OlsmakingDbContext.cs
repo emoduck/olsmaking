@@ -15,6 +15,8 @@ public sealed class OlsmakingDbContext(DbContextOptions<OlsmakingDbContext> opti
 
     public DbSet<BeerReview> BeerReviews => Set<BeerReview>();
 
+    public DbSet<BeerFavorite> BeerFavorites => Set<BeerFavorite>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AppUser>(entity =>
@@ -130,6 +132,35 @@ public sealed class OlsmakingDbContext(DbContextOptions<OlsmakingDbContext> opti
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(x => new { x.EventId, x.BeerId, x.UserId }).IsUnique();
+        });
+
+        modelBuilder.Entity<BeerFavorite>(entity =>
+        {
+            entity.ToTable("BeerFavorites");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.EventId).IsRequired();
+            entity.Property(x => x.BeerId).IsRequired();
+            entity.Property(x => x.UserId).IsRequired();
+            entity.Property(x => x.CreatedUtc).IsRequired();
+
+            entity.HasOne(x => x.Event)
+                .WithMany(x => x.BeerFavorites)
+                .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.Beer)
+                .WithMany(x => x.BeerFavorites)
+                .HasForeignKey(x => x.BeerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.User)
+                .WithMany(x => x.BeerFavorites)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(x => new { x.UserId, x.BeerId }).IsUnique();
+            entity.HasIndex(x => new { x.EventId, x.UserId });
         });
     }
 }

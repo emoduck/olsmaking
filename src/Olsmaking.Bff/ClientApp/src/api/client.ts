@@ -156,6 +156,21 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
+async function requestVoid(url: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
+    ...init,
+  })
+
+  if (!response.ok) {
+    const problem = await parseProblem(response)
+    throw new ApiClientError(response.status, getErrorMessage(response.status, problem), problem)
+  }
+}
+
 export function buildLoginUrl(returnUrl = window.location.pathname + window.location.search): string {
   const params = new URLSearchParams({ returnUrl })
   return `/api/auth/login?${params.toString()}`
@@ -193,6 +208,10 @@ export function getEventBeers(eventId: string): Promise<EventBeer[]> {
   return requestJson<EventBeer[]>(`/api/events/${encodeURIComponent(eventId)}/beers`, { method: 'GET' })
 }
 
+export function getMyEventFavorites(eventId: string): Promise<string[]> {
+  return requestJson<string[]>(`/api/events/${encodeURIComponent(eventId)}/favorites/me`, { method: 'GET' })
+}
+
 export function createEventBeer(eventId: string, payload: CreateEventBeerRequest): Promise<EventBeer> {
   return requestJson<EventBeer>(`/api/events/${encodeURIComponent(eventId)}/beers`, {
     method: 'POST',
@@ -204,6 +223,18 @@ export function createBeerReview(eventId: string, beerId: string, payload: Upser
   return requestJson<BeerReview>(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}/reviews`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function addBeerFavorite(eventId: string, beerId: string): Promise<void> {
+  return requestVoid(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}/favorite`, {
+    method: 'POST',
+  })
+}
+
+export function removeBeerFavorite(eventId: string, beerId: string): Promise<void> {
+  return requestVoid(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}/favorite`, {
+    method: 'DELETE',
   })
 }
 

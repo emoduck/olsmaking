@@ -509,6 +509,129 @@ if (auth0Settings.IsConfigured)
         return Results.Ok(beers);
     }).RequireAuthorization();
 
+    eventsGroup.MapGet("/{eventId:guid}/favorites/me", async (Guid eventId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var eventAccessResult = await GetEventAccessAsync(eventId, currentUser.Id, user.HasAdminScope(), dbContext, cancellationToken);
+
+        if (eventAccessResult.Error is not null)
+        {
+            return eventAccessResult.Error;
+        }
+
+        var favoriteBeerIds = await dbContext.BeerFavorites
+            .AsNoTracking()
+            .Where(x => x.EventId == eventId && x.UserId == currentUser.Id)
+            .OrderBy(x => x.BeerId)
+            .Select(x => x.BeerId)
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(favoriteBeerIds);
+    }).RequireAuthorization();
+
+    eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/favorite", async (Guid eventId, Guid beerId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var eventAccessResult = await GetEventAccessAsync(eventId, currentUser.Id, user.HasAdminScope(), dbContext, cancellationToken);
+
+        if (eventAccessResult.Error is not null)
+        {
+            return eventAccessResult.Error;
+        }
+
+        var beerExists = await dbContext.EventBeers
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == beerId && x.EventId == eventId, cancellationToken);
+
+        if (!beerExists)
+        {
+            return Results.NotFound();
+        }
+
+        var favorite = new BeerFavorite
+        {
+            Id = Guid.NewGuid(),
+            EventId = eventId,
+            BeerId = beerId,
+            UserId = currentUser.Id,
+            CreatedUtc = DateTimeOffset.UtcNow,
+        };
+
+        dbContext.BeerFavorites.Add(favorite);
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            var existingFavorite = await dbContext.BeerFavorites
+                .AsNoTracking()
+                .AnyAsync(x => x.UserId == currentUser.Id && x.BeerId == beerId, cancellationToken);
+
+            if (!existingFavorite)
+            {
+                throw;
+            }
+        }
+
+        return Results.NoContent();
+    }).RequireAuthorization();
+
+    eventsGroup.MapDelete("/{eventId:guid}/beers/{beerId:guid}/favorite", async (Guid eventId, Guid beerId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var eventAccessResult = await GetEventAccessAsync(eventId, currentUser.Id, user.HasAdminScope(), dbContext, cancellationToken);
+
+        if (eventAccessResult.Error is not null)
+        {
+            return eventAccessResult.Error;
+        }
+
+        var beerExists = await dbContext.EventBeers
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == beerId && x.EventId == eventId, cancellationToken);
+
+        if (!beerExists)
+        {
+            return Results.NotFound();
+        }
+
+        var favorite = await dbContext.BeerFavorites
+            .SingleOrDefaultAsync(x => x.EventId == eventId && x.BeerId == beerId && x.UserId == currentUser.Id, cancellationToken);
+
+        if (favorite is null)
+        {
+            return Results.NoContent();
+        }
+
+        dbContext.BeerFavorites.Remove(favorite);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Results.NoContent();
+    }).RequireAuthorization();
+
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/reviews", async (Guid eventId, Guid beerId, CreateBeerReviewRequest request, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
     {
         var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
@@ -901,6 +1024,9 @@ else
     eventsGroup.MapGet("/{eventId:guid}", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers", AuthUnavailable);
     eventsGroup.MapGet("/{eventId:guid}/beers", AuthUnavailable);
+    eventsGroup.MapGet("/{eventId:guid}/favorites/me", AuthUnavailable);
+    eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/favorite", AuthUnavailable);
+    eventsGroup.MapDelete("/{eventId:guid}/beers/{beerId:guid}/favorite", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/reviews", AuthUnavailable);
     eventsGroup.MapPatch("/{eventId:guid}/beers/{beerId:guid}/reviews/me", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/join", AuthUnavailable);

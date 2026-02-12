@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
+  addBeerFavorite,
   ApiClientError,
   buildLoginUrl,
   createBeerReview,
@@ -9,9 +10,11 @@ import {
   getCurrentUser,
   getEvent,
   getEventBeers,
+  getMyEventFavorites,
   getMyEvents,
   joinEvent,
   patchMyBeerReview,
+  removeBeerFavorite,
   type CurrentUser,
   type EventBeer,
   type EventDetails,
@@ -69,6 +72,8 @@ function App() {
   const [workspacePending, setWorkspacePending] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null)
   const [beerList, setBeerList] = useState<EventBeer[]>([])
+  const [favoriteBeerIds, setFavoriteBeerIds] = useState<string[]>([])
+  const [favoritePendingBeerIds, setFavoritePendingBeerIds] = useState<string[]>([])
   const [selectedBeerId, setSelectedBeerId] = useState('')
 
   const [beerName, setBeerName] = useState('')
@@ -93,6 +98,8 @@ function App() {
   const [joinCode, setJoinCode] = useState(queryValues.joinCode)
 
   const selectedBeer = beerList.find((item) => item.id === selectedBeerId) ?? null
+  const favoriteBeerIdSet = useMemo(() => new Set(favoriteBeerIds), [favoriteBeerIds])
+  const favoritePendingBeerIdSet = useMemo(() => new Set(favoritePendingBeerIds), [favoritePendingBeerIds])
 
   function upsertEventSummary(eventItem: EventSummary) {
     setEventList((previous) => {
@@ -116,10 +123,16 @@ function App() {
 
   async function loadEventWorkspace(eventId: string) {
     setWorkspacePending(true)
+    setFavoritePendingBeerIds([])
     try {
-      const [eventDetails, beers] = await Promise.all([getEvent(eventId), getEventBeers(eventId)])
+      const [eventDetails, beers, favorites] = await Promise.all([
+        getEvent(eventId),
+        getEventBeers(eventId),
+        getMyEventFavorites(eventId),
+      ])
       setSelectedEvent(eventDetails)
       setBeerList(beers)
+      setFavoriteBeerIds(favorites)
       setSelectedBeerId((previous) => {
         if (previous && beers.some((item) => item.id === previous)) {
           return previous
@@ -130,6 +143,47 @@ function App() {
       upsertEventSummaryFromDetails(eventDetails)
     } finally {
       setWorkspacePending(false)
+    }
+  }
+
+  async function handleToggleFavorite(beerId: string, beerName: string) {
+    if (!selectedEvent || favoritePendingBeerIdSet.has(beerId)) {
+      return
+    }
+
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+
+    const isFavorite = favoriteBeerIdSet.has(beerId)
+
+    setFavoritePendingBeerIds((previous) => {
+      if (previous.includes(beerId)) {
+        return previous
+      }
+
+      return [...previous, beerId]
+    })
+
+    try {
+      if (isFavorite) {
+        await removeBeerFavorite(selectedEvent.id, beerId)
+        setFavoriteBeerIds((previous) => previous.filter((item) => item !== beerId))
+        setFeedbackMessage(`${beerName} er fjernet fra favoritter.`)
+      } else {
+        await addBeerFavorite(selectedEvent.id, beerId)
+        setFavoriteBeerIds((previous) => {
+          if (previous.includes(beerId)) {
+            return previous
+          }
+
+          return [...previous, beerId]
+        })
+        setFeedbackMessage(`${beerName} er lagret som favoritt.`)
+      }
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setFavoritePendingBeerIds((previous) => previous.filter((item) => item !== beerId))
     }
   }
 
@@ -435,23 +489,45 @@ function App() {
                   <ul className={styles.beerList}>
                     {beerList.map((beer) => (
                       <li key={beer.id} className={beer.id === selectedBeerId ? styles.beerRowActive : styles.beerRow}>
-                        <div>
+                        <div className={styles.beerRowBody}>
                           <p className={styles.eventName}>{beer.name}</p>
                           <p className={styles.eventMeta}>
                             {[beer.brewery, beer.style, beer.abv !== null ? `${beer.abv}%` : null]
                               .filter(Boolean)
                               .join(' · ') || 'Ingen detaljer'}
                           </p>
+                          {favoriteBeerIdSet.has(beer.id) ? <p className={styles.favoriteMeta}>Favoritt</p> : null}
                         </div>
-                        <button
-                          type="button"
-                          className={styles.buttonSecondary}
-                          onClick={() => {
-                            setSelectedBeerId(beer.id)
-                          }}
-                        >
-                          Velg
-                        </button>
+                        <div className={styles.beerActions}>
+                          <button
+                            type="button"
+                            className={styles.buttonSecondary}
+                            onClick={() => {
+                              void handleToggleFavorite(beer.id, beer.name)
+                            }}
+                            disabled={favoritePendingBeerIdSet.has(beer.id)}
+                            aria-label={
+                              favoriteBeerIdSet.has(beer.id)
+                                ? `Fjern favoritt for ${beer.name}`
+                                : `Lagre ${beer.name} som favoritt`
+                            }
+                          >
+                            {favoritePendingBeerIdSet.has(beer.id)
+                              ? 'Lagrer...'
+                              : favoriteBeerIdSet.has(beer.id)
+                                ? 'Fjern favoritt'
+                                : 'Lagre favoritt'}
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.buttonSecondary}
+                            onClick={() => {
+                              setSelectedBeerId(beer.id)
+                            }}
+                          >
+                            Velg
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>

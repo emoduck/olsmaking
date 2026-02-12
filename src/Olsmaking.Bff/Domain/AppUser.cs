@@ -19,4 +19,6 @@ public sealed class AppUser
     public ICollection<EventParticipant> EventParticipants { get; set; } = new List<EventParticipant>();
 
     public ICollection<BeerReview> BeerReviews { get; set; } = new List<BeerReview>();
+
+    public ICollection<BeerFavorite> BeerFavorites { get; set; } = new List<BeerFavorite>();
 }

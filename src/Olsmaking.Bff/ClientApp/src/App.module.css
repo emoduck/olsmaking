@@ -227,6 +227,23 @@
   background: var(--color-primary-50);
 }
 
+.beerRowBody {
+  min-width: 0;
+}
+
+.beerActions {
+  display: grid;
+  gap: var(--space-8);
+  justify-items: end;
+}
+
+.favoriteMeta {
+  margin: var(--space-6) 0 0;
+  color: var(--color-primary-700);
+  font-size: var(--font-size-12);
+  font-weight: 600;
+}
+
 .bottomNav {
   position: fixed;
   bottom: 0;
