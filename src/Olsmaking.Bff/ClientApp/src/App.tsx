@@ -60,6 +60,10 @@ function getApiMessage(error: unknown): string {
   }
 
   if (error instanceof Error && error.message) {
+    if (error.message === 'Failed to fetch') {
+      return 'Kunne ikke kontakte backend. Sjekk at BFF-prosessen kjører på localhost:5287.'
+    }
+
     return error.message
   }
 

@@ -70,6 +70,14 @@ if (auth0Settings.IsConfigured)
 
             options.Events.OnRedirectToIdentityProvider = context =>
             {
+                if (context.Request.Path.StartsWithSegments("/api")
+                    && !context.Request.Path.StartsWithSegments("/api/auth/login"))
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.HandleResponse();
+                    return Task.CompletedTask;
+                }
+
                 if (!string.IsNullOrWhiteSpace(auth0Settings.Audience))
                 {
                     context.ProtocolMessage.SetParameter("audience", auth0Settings.Audience);
