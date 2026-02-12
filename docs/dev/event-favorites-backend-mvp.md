@@ -8,6 +8,7 @@ Add backend support for event-scoped beer favorites so users can save and retrie
 ### In Scope
 - Persist user beer favorites with uniqueness guarantees.
 - Add API endpoints for reading, adding, and removing current-user favorites in an event.
+- Add API endpoint for reading current-user favorites across accessible events.
 - Enforce existing event access checks for all favorites endpoints.
 - Validate beer ownership by ensuring the beer belongs to the requested event.
 
@@ -26,8 +27,16 @@ Add backend support for event-scoped beer favorites so users can save and retrie
 - Unique index on `{UserId, BeerId}` prevents duplicate favorites per user+beer.
 - Endpoints added:
   - `GET /api/events/{eventId}/favorites/me`
+  - `GET /api/favorites/mine`
   - `POST /api/events/{eventId}/beers/{beerId}/favorite`
   - `DELETE /api/events/{eventId}/beers/{beerId}/favorite`
+
+- Global favorites response includes:
+  - `eventId`, `eventName`
+  - `beerId`, `beerName`, `brewery`, `style`, `abv`
+  - `favoritedUtc`, `eventStatus`
+  - Sorted by `favoritedUtc` descending
+  - Filtered to events where current user still has access (admin, owner, or active participant)
 
 ## Dependencies / Assumptions
 - Existing one-user-per-sub identity mapping remains unchanged.

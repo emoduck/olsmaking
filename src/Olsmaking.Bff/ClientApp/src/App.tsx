@@ -10,6 +10,7 @@ import {
   getCurrentUser,
   getEvent,
   getEventBeers,
+  getMyFavorites,
   getMyBeerReview,
   getMyEventFavorites,
   getMyEvents,
@@ -24,11 +25,12 @@ import {
   type EventBeer,
   type EventDetails,
   type EventSummary,
+  type FavoriteBeerSummary,
 } from './api/client'
 import styles from './App.module.css'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
-type PrimaryTab = 'oversikt' | 'arrangement'
+type PrimaryTab = 'oversikt' | 'arrangement' | 'favoritter'
 type OverviewFilter = 'mine' | 'open'
 
 const STATUS_LABELS: Record<number, string> = {
@@ -76,6 +78,9 @@ function App() {
   const [myEventList, setMyEventList] = useState<EventSummary[]>([])
   const [openEventList, setOpenEventList] = useState<EventSummary[]>([])
   const [overviewFilter, setOverviewFilter] = useState<OverviewFilter>('mine')
+  const [favoriteList, setFavoriteList] = useState<FavoriteBeerSummary[]>([])
+  const [favoritesPending, setFavoritesPending] = useState(false)
+  const [favoritesHydrated, setFavoritesHydrated] = useState(false)
 
   const [workspacePending, setWorkspacePending] = useState(false)
   const [workspaceActionPending, setWorkspaceActionPending] = useState(false)
@@ -118,6 +123,19 @@ function App() {
   const overviewList = overviewFilter === 'mine' ? myEventList : openEventList
   const currentUserRole = selectedEvent?.currentUserRole.toLowerCase() ?? ''
   const canManageEvent = currentUserRole === 'owner' || currentUserRole === 'admin'
+  const favoritesDateFormatter = useMemo(
+    () => new Intl.DateTimeFormat('nb-NO', { dateStyle: 'short', timeStyle: 'short' }),
+    [],
+  )
+
+  function formatFavoriteTime(value: string): string {
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      return value
+    }
+
+    return favoritesDateFormatter.format(parsed)
+  }
 
   useEffect(() => {
     let isActive = true
@@ -318,7 +336,12 @@ function App() {
 
     async function hydrate() {
       try {
-        const [currentUser, myEvents, openEvents] = await Promise.all([getCurrentUser(), getMyEvents(), getOpenEvents()])
+        const [currentUser, myEvents, openEvents, favorites] = await Promise.all([
+          getCurrentUser(),
+          getMyEvents(),
+          getOpenEvents(),
+          getMyFavorites(),
+        ])
 
         if (!isMounted) {
           return
@@ -327,6 +350,8 @@ function App() {
         setUser(currentUser)
         setMyEventList(myEvents)
         setOpenEventList(openEvents.filter((item) => !myEvents.some((myEvent) => myEvent.id === item.id)))
+        setFavoriteList(favorites)
+        setFavoritesHydrated(true)
         setAuthState('authenticated')
       } catch (error) {
         if (!isMounted) {
@@ -349,6 +374,44 @@ function App() {
       isMounted = false
     }
   }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    if (activeTab !== 'favoritter' || favoritesHydrated || favoritesPending) {
+      return () => {
+        isMounted = false
+      }
+    }
+
+    async function hydrateFavorites() {
+      setFavoritesPending(true)
+      try {
+        const favorites = await getMyFavorites()
+
+        if (!isMounted) {
+          return
+        }
+
+        setFavoriteList(favorites)
+        setFavoritesHydrated(true)
+      } catch (error) {
+        if (!isMounted) {
+          return
+        }
+
+        setErrorMessage(getApiMessage(error))
+      } finally {
+        setFavoritesPending(false)
+      }
+    }
+
+    void hydrateFavorites()
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeTab, favoritesHydrated, favoritesPending])
 
   const loginUrl = buildLoginUrl()
 
@@ -405,6 +468,19 @@ function App() {
 
     try {
       await loadEventWorkspace(eventId)
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    }
+  }
+
+  async function handleOpenFavoriteWorkspace(eventId: string, eventName: string) {
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+    setActiveTab('oversikt')
+
+    try {
+      await loadEventWorkspace(eventId)
+      setFeedbackMessage(`Arbeidsflate apnet for ${eventName}.`)
     } catch (error) {
       setErrorMessage(getApiMessage(error))
     }
@@ -891,6 +967,41 @@ function App() {
             </>
           ) : null}
         </>
+      ) : activeTab === 'favoritter' ? (
+        <section className={styles.panel}>
+          <h2 className={styles.sectionTitle}>Favoritter</h2>
+          {favoritesPending ? (
+            <p className={styles.muted}>Laster favoritter...</p>
+          ) : favoriteList.length ? (
+            <ul className={styles.favoriteList}>
+              {favoriteList.map((favorite) => (
+                <li key={`${favorite.eventId}-${favorite.beerId}`} className={styles.favoriteCard}>
+                  <div className={styles.favoriteCardBody}>
+                    <p className={styles.eventName}>{favorite.beerName}</p>
+                    <p className={styles.eventMeta}>
+                      {[favorite.brewery, favorite.style, favorite.abv !== null ? `${favorite.abv}%` : null]
+                        .filter(Boolean)
+                        .join(' · ') || 'Ingen detaljer'}
+                    </p>
+                    <p className={styles.eventMeta}>Arrangement: {favorite.eventName}</p>
+                    <p className={styles.eventMeta}>Lagt til: {formatFavoriteTime(favorite.favoritedUtc)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.buttonSecondary}
+                    onClick={() => {
+                      void handleOpenFavoriteWorkspace(favorite.eventId, favorite.eventName)
+                    }}
+                  >
+                    Apen arbeidsflate
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>Ingen favoritter enna.</p>
+          )}
+        </section>
       ) : (
         <>
           <section className={styles.panel}>
@@ -974,7 +1085,13 @@ function App() {
         <button type="button" className={styles.navItemDisabled} disabled>
           Smakinger
         </button>
-        <button type="button" className={styles.navItemDisabled} disabled>
+        <button
+          type="button"
+          className={activeTab === 'favoritter' ? styles.navItemActive : styles.navItem}
+          onClick={() => {
+            setActiveTab('favoritter')
+          }}
+        >
           Favoritter
         </button>
         <button type="button" className={styles.navItemDisabled} disabled>
@@ -982,7 +1099,7 @@ function App() {
         </button>
       </nav>
 
-      <p className={styles.navHint}>Smakinger, favoritter og profil kommer snart.</p>
+      <p className={styles.navHint}>Smakinger og profil kommer snart.</p>
       <div className={styles.navSpacer} />
     </main>
   )

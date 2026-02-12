@@ -230,12 +230,29 @@
 }
 
 .participantList,
-.beerList {
+.beerList,
+.favoriteList {
   list-style: none;
   padding: 0;
   margin: var(--space-12) 0 0;
   display: grid;
   gap: var(--space-8);
+}
+
+.favoriteList {
+  gap: var(--space-12);
+}
+
+.favoriteCard {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-8);
+  padding: var(--space-12);
+  display: grid;
+  gap: var(--space-12);
+}
+
+.favoriteCardBody {
+  min-width: 0;
 }
 
 .participantRow {
@@ -348,6 +365,13 @@
 
 .navSpacer {
   height: 90px;
+}
+
+@media (min-width: 480px) {
+  .favoriteCard {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
 }
 
 @media (min-width: 768px) {

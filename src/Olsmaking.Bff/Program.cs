@@ -152,6 +152,7 @@ else
 
 var usersGroup = app.MapGroup("/api/users");
 var eventsGroup = app.MapGroup("/api/events");
+var favoritesGroup = app.MapGroup("/api/favorites");
 
 if (auth0Settings.IsConfigured)
 {
@@ -571,6 +572,45 @@ if (auth0Settings.IsConfigured)
             .ToListAsync(cancellationToken);
 
         return Results.Ok(favoriteBeerIds);
+    }).RequireAuthorization();
+
+    favoritesGroup.MapGet("/mine", async (ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var isAdmin = user.HasAdminScope();
+
+        var favorites = await dbContext.BeerFavorites
+            .AsNoTracking()
+            .Where(x => x.UserId == currentUser.Id
+                && (isAdmin
+                    || x.Event.OwnerUserId == currentUser.Id
+                    || x.Event.Participants.Any(p => p.UserId == currentUser.Id && p.Status == EventParticipantStatus.Active)))
+            .Select(x => new
+            {
+                EventId = x.EventId,
+                EventName = x.Event.Name,
+                BeerId = x.BeerId,
+                BeerName = x.Beer.Name,
+                Brewery = x.Beer.Brewery,
+                Style = x.Beer.Style,
+                Abv = x.Beer.Abv,
+                FavoritedUtc = x.CreatedUtc,
+                EventStatus = x.Event.Status,
+            })
+            .ToListAsync(cancellationToken);
+
+        favorites = favorites
+            .OrderByDescending(x => x.FavoritedUtc)
+            .ToList();
+
+        return Results.Ok(favorites);
     }).RequireAuthorization();
 
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/favorite", async (Guid eventId, Guid beerId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
@@ -1222,6 +1262,7 @@ else
     eventsGroup.MapPost("/{eventId:guid}/beers", AuthUnavailable);
     eventsGroup.MapGet("/{eventId:guid}/beers", AuthUnavailable);
     eventsGroup.MapGet("/{eventId:guid}/favorites/me", AuthUnavailable);
+    favoritesGroup.MapGet("/mine", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/favorite", AuthUnavailable);
     eventsGroup.MapDelete("/{eventId:guid}/beers/{beerId:guid}/favorite", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/reviews", AuthUnavailable);

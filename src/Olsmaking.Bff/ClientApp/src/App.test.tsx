@@ -172,6 +172,20 @@ const beers = [
   },
 ]
 
+const favorites = [
+  {
+    eventId: 'event-1',
+    eventName: 'Min smaking',
+    beerId: 'beer-1',
+    beerName: 'Pale Ale',
+    brewery: 'Bryggeri 1',
+    style: 'Pale Ale',
+    abv: 5.1,
+    favoritedUtc: '2026-01-03T12:15:00Z',
+    eventStatus: 1,
+  },
+]
+
 describe('App core flows', () => {
   beforeEach(() => {
     window.history.pushState({}, '', '/')
@@ -187,6 +201,7 @@ describe('App core flows', () => {
       { url: '/api/users/me', response: jsonResponse(currentUser) },
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
     ])
 
     render(<App />)
@@ -198,11 +213,58 @@ describe('App core flows', () => {
     expect(await screen.findByText('Apen smaking')).toBeInTheDocument()
   })
 
+  it('shows favorites from the global favorites endpoint', async () => {
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse(favorites) },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
+
+    expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
+    expect(screen.getByText('Arrangement: Min smaking')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Apen arbeidsflate' })).toBeInTheDocument()
+  })
+
+  it('opens event workspace from selected favorite card', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse(favorites) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse(['beer-1']) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Apen arbeidsflate' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'GET', '/api/events/event-1')).toBeTruthy()
+      expect(getCallByMethodAndPath(fetchMock, 'GET', '/api/events/event-1/beers')).toBeTruthy()
+      expect(getCallByMethodAndPath(fetchMock, 'GET', '/api/events/event-1/favorites/me')).toBeTruthy()
+    })
+
+    expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
+  })
+
   it('joins an event and loads workspace', async () => {
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
       {
         method: 'POST',
         url: '/api/events/event-1/join',
@@ -233,6 +295,7 @@ describe('App core flows', () => {
       { url: '/api/users/me', response: jsonResponse(currentUser) },
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
       { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
       { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
       { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
@@ -276,6 +339,7 @@ describe('App core flows', () => {
       { url: '/api/users/me', response: jsonResponse(currentUser) },
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
       { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
       { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
       { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
@@ -315,6 +379,7 @@ describe('App core flows', () => {
       { url: '/api/users/me', response: jsonResponse(currentUser) },
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
       { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
       { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
       { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
@@ -368,6 +433,7 @@ describe('App core flows', () => {
       { url: '/api/users/me', response: jsonResponse(currentUser) },
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
       { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
       { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
       { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },

@@ -69,6 +69,18 @@ export interface EventBeer {
   createdUtc: string
 }
 
+export interface FavoriteBeerSummary {
+  eventId: string
+  eventName: string
+  beerId: string
+  beerName: string
+  brewery: string | null
+  style: string | null
+  abv: number | null
+  favoritedUtc: string
+  eventStatus: number
+}
+
 export interface BeerReview {
   id: string
   eventId: string
@@ -236,6 +248,10 @@ export function getEventBeers(eventId: string): Promise<EventBeer[]> {
 
 export function getMyEventFavorites(eventId: string): Promise<string[]> {
   return requestJson<string[]>(`/api/events/${encodeURIComponent(eventId)}/favorites/me`, { method: 'GET' })
+}
+
+export function getMyFavorites(): Promise<FavoriteBeerSummary[]> {
+  return requestJson<FavoriteBeerSummary[]>('/api/favorites/mine', { method: 'GET' })
 }
 
 export function createEventBeer(eventId: string, payload: CreateEventBeerRequest): Promise<EventBeer> {
