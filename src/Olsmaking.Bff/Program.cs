@@ -192,25 +192,74 @@ if (auth0Settings.IsConfigured)
         else
         {
             appUser.Email = email;
-            appUser.Nickname = nickname;
             appUser.LastSeenUtc = now;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Results.Ok(new
+        return Results.Ok(CreateCurrentUserResponse(appUser, user));
+    }).RequireAuthorization();
+
+    usersGroup.MapPatch("/me", async (JsonElement requestBody, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        if (requestBody.ValueKind != JsonValueKind.Object)
         {
-            Id = appUser.Id,
-            Subject = appUser.Auth0Subject,
-            Email = appUser.Email,
-            Nickname = appUser.Nickname,
-            IsAdmin = user.HasAdminScope(),
-        });
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["requestBody"] = ["Request body must be a JSON object."],
+            });
+        }
+
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var appUser = currentUserResult.User!;
+        var errors = new Dictionary<string, string[]>();
+
+        if (requestBody.TryGetProperty("nickname", out var nicknameElement))
+        {
+            if (nicknameElement.ValueKind != JsonValueKind.String)
+            {
+                errors["nickname"] = ["Nickname must be a string."];
+            }
+            else
+            {
+                var normalizedNickname = nicknameElement.GetString()?.Trim();
+
+                if (string.IsNullOrWhiteSpace(normalizedNickname))
+                {
+                    errors["nickname"] = ["Nickname is required."];
+                }
+                else if (normalizedNickname.Length > 100)
+                {
+                    errors["nickname"] = ["Nickname must be 100 characters or fewer."];
+                }
+                else
+                {
+                    appUser.Nickname = normalizedNickname;
+                }
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            return Results.ValidationProblem(errors);
+        }
+
+        appUser.LastSeenUtc = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Results.Ok(CreateCurrentUserResponse(appUser, user));
     }).RequireAuthorization();
 }
 else
 {
     usersGroup.MapGet("/me", AuthUnavailable);
+    usersGroup.MapPatch("/me", AuthUnavailable);
 }
 
 if (auth0Settings.IsConfigured)
@@ -1430,6 +1479,18 @@ static bool TryApplyNullableTextPatch(
 
     assign(nextValue);
     return true;
+}
+
+static object CreateCurrentUserResponse(AppUser appUser, ClaimsPrincipal user)
+{
+    return new
+    {
+        Id = appUser.Id,
+        Subject = appUser.Auth0Subject,
+        Email = appUser.Email,
+        Nickname = appUser.Nickname,
+        IsAdmin = user.HasAdminScope(),
+    };
 }
 
 internal sealed record CreateEventRequest(string? Name, EventVisibility? Visibility, bool? IsListed);

@@ -53,6 +53,106 @@ public sealed class ApiBehaviorTests
     }
 
     [Fact]
+    public async Task PatchMe_Returns503_WhenAuth0IsUnconfigured()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: false);
+        using var client = factory.CreateClient();
+
+        using var response = await client.PatchAsJsonAsync(
+            "/api/users/me",
+            new
+            {
+                nickname = "Updated Name",
+            });
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchMe_UpdatesNickname_AndReturnsCurrentUser()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var getMeResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/users/me",
+            "profile-sub");
+
+        Assert.Equal(HttpStatusCode.OK, getMeResponse.StatusCode);
+        var mePayload = await getMeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var userId = mePayload.GetProperty("id").GetGuid();
+
+        var baselineLastSeenUtc = new DateTimeOffset(2020, 01, 01, 00, 00, 00, TimeSpan.Zero);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OlsmakingDbContext>();
+            var appUser = await dbContext.AppUsers.SingleAsync(x => x.Id == userId);
+            appUser.LastSeenUtc = baselineLastSeenUtc;
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var patchResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Patch,
+            "/api/users/me",
+            "profile-sub",
+            new
+            {
+                nickname = "  Updated Nickname  ",
+            });
+
+        Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+        var patchPayload = await patchResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(userId, patchPayload.GetProperty("id").GetGuid());
+        Assert.Equal("profile-sub@example.com", patchPayload.GetProperty("email").GetString());
+        Assert.Equal("Updated Nickname", patchPayload.GetProperty("nickname").GetString());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OlsmakingDbContext>();
+            var appUser = await dbContext.AppUsers.SingleAsync(x => x.Id == userId);
+
+            Assert.Equal("Updated Nickname", appUser.Nickname);
+            Assert.True(appUser.LastSeenUtc > baselineLastSeenUtc);
+        }
+    }
+
+    [Fact]
+    public async Task PatchMe_Returns400_ForInvalidNickname()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var emptyNicknameResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Patch,
+            "/api/users/me",
+            "invalid-profile-sub",
+            new
+            {
+                nickname = "   ",
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, emptyNicknameResponse.StatusCode);
+
+        using var tooLongNicknameResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Patch,
+            "/api/users/me",
+            "invalid-profile-sub",
+            new
+            {
+                nickname = new string('n', 101),
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, tooLongNicknameResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task EventsMine_ReturnsOwnedEvents_ForAuthenticatedUser()
     {
         using var factory = new OlsmakingApiFactory(auth0Configured: true);

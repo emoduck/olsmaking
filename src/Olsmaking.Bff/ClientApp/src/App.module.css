@@ -80,6 +80,21 @@
   margin-top: var(--space-12);
 }
 
+.profileField {
+  margin-top: var(--space-12);
+}
+
+.readOnlyValue {
+  margin: var(--space-4) 0 0;
+  min-height: 44px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-8);
+  padding: var(--space-10) var(--space-12);
+  color: var(--color-text-primary);
+  background: var(--color-bg-subtle);
+  word-break: break-word;
+}
+
 .label {
   font-size: var(--font-size-14);
   color: var(--color-text-secondary);

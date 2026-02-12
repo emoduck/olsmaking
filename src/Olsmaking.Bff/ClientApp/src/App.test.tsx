@@ -230,6 +230,55 @@ describe('App core flows', () => {
     expect(screen.getByRole('button', { name: 'Apen arbeidsflate' })).toBeInTheDocument()
   })
 
+  it('renders profile tab with read-only email and prefilled nickname', async () => {
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Profil' }))
+
+    expect(await screen.findByText('test@example.com')).toBeInTheDocument()
+    expect(screen.getByLabelText('Kallenavn')).toHaveValue('Testbruker')
+  })
+
+  it('submits nickname update via PATCH and shows confirmation', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      {
+        method: 'PATCH',
+        url: '/api/users/me',
+        response: jsonResponse({
+          ...currentUser,
+          nickname: 'Nytt navn',
+        }),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Profil' }))
+    fireEvent.change(await screen.findByLabelText('Kallenavn'), { target: { value: 'Nytt navn' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Lagre profil' }))
+
+    expect(await screen.findByText('Profil oppdatert.')).toBeInTheDocument()
+
+    const patchCall = getCallByMethodAndPath(fetchMock, 'PATCH', '/api/users/me')
+    expect(patchCall).toBeTruthy()
+    expect((patchCall?.[1] as RequestInit | undefined)?.body).toBe(
+      JSON.stringify({
+        nickname: 'Nytt navn',
+      }),
+    )
+  })
+
   it('opens event workspace from selected favorite card', async () => {
     const fetchMock = installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },

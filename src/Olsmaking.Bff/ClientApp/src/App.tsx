@@ -17,6 +17,7 @@ import {
   getOpenEvents,
   joinEvent,
   patchEventStatus,
+  patchCurrentUserNickname,
   patchMyBeerReview,
   removeParticipant,
   restoreParticipant,
@@ -30,7 +31,7 @@ import {
 import styles from './App.module.css'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
-type PrimaryTab = 'oversikt' | 'arrangement' | 'favoritter'
+type PrimaryTab = 'oversikt' | 'arrangement' | 'favoritter' | 'profil'
 type OverviewFilter = 'mine' | 'open'
 
 const STATUS_LABELS: Record<number, string> = {
@@ -81,6 +82,8 @@ function App() {
   const [favoriteList, setFavoriteList] = useState<FavoriteBeerSummary[]>([])
   const [favoritesPending, setFavoritesPending] = useState(false)
   const [favoritesHydrated, setFavoritesHydrated] = useState(false)
+  const [profileNickname, setProfileNickname] = useState('')
+  const [profilePending, setProfilePending] = useState(false)
 
   const [workspacePending, setWorkspacePending] = useState(false)
   const [workspaceActionPending, setWorkspaceActionPending] = useState(false)
@@ -413,6 +416,10 @@ function App() {
     }
   }, [activeTab, favoritesHydrated, favoritesPending])
 
+  useEffect(() => {
+    setProfileNickname(user?.nickname ?? '')
+  }, [user])
+
   const loginUrl = buildLoginUrl()
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -572,6 +579,36 @@ function App() {
       setErrorMessage(getApiMessage(error))
     } finally {
       setReviewPending(false)
+    }
+  }
+
+  async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+
+    const trimmedNickname = profileNickname.trim()
+
+    if (!trimmedNickname) {
+      setErrorMessage('Kallenavn kan ikke vare tomt.')
+      return
+    }
+
+    if (trimmedNickname.length > 100) {
+      setErrorMessage('Kallenavn kan ikke vare lengre enn 100 tegn.')
+      return
+    }
+
+    setProfilePending(true)
+    try {
+      const updatedUser = await patchCurrentUserNickname(trimmedNickname)
+      setUser(updatedUser)
+      setProfileNickname(updatedUser.nickname ?? trimmedNickname)
+      setFeedbackMessage('Profil oppdatert.')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setProfilePending(false)
     }
   }
 
@@ -1002,6 +1039,34 @@ function App() {
             <p className={styles.muted}>Ingen favoritter enna.</p>
           )}
         </section>
+      ) : activeTab === 'profil' ? (
+        <section className={styles.panel}>
+          <h2 className={styles.sectionTitle}>Profil</h2>
+          <div className={styles.profileField}>
+            <p className={styles.label}>E-post</p>
+            <p className={styles.readOnlyValue}>{user?.email ?? 'Ingen e-post registrert'}</p>
+          </div>
+
+          <form className={styles.form} onSubmit={handleProfileSubmit}>
+            <label className={styles.label} htmlFor="profile-nickname">
+              Kallenavn
+            </label>
+            <input
+              id="profile-nickname"
+              className={styles.input}
+              value={profileNickname}
+              onChange={(event) => {
+                setProfileNickname(event.target.value)
+              }}
+              maxLength={100}
+              placeholder="Slik vises navnet ditt i appen"
+            />
+
+            <button type="submit" className={styles.buttonPrimary} disabled={profilePending}>
+              {profilePending ? 'Lagrer...' : 'Lagre profil'}
+            </button>
+          </form>
+        </section>
       ) : (
         <>
           <section className={styles.panel}>
@@ -1094,12 +1159,18 @@ function App() {
         >
           Favoritter
         </button>
-        <button type="button" className={styles.navItemDisabled} disabled>
+        <button
+          type="button"
+          className={activeTab === 'profil' ? styles.navItemActive : styles.navItem}
+          onClick={() => {
+            setActiveTab('profil')
+          }}
+        >
           Profil
         </button>
       </nav>
 
-      <p className={styles.navHint}>Smakinger og profil kommer snart.</p>
+      <p className={styles.navHint}>Smakinger kommer snart.</p>
       <div className={styles.navSpacer} />
     </main>
   )

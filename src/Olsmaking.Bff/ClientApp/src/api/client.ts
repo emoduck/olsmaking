@@ -195,6 +195,13 @@ export function getCurrentUser(): Promise<CurrentUser> {
   return requestJson<CurrentUser>('/api/users/me', { method: 'GET' })
 }
 
+export function patchCurrentUserNickname(nickname: string): Promise<CurrentUser> {
+  return requestJson<CurrentUser>('/api/users/me', {
+    method: 'PATCH',
+    body: JSON.stringify({ nickname }),
+  })
+}
+
 export async function createEvent(name: string): Promise<EventDetails> {
   const created = await requestJson<CreateEventResponse>('/api/events', {
     method: 'POST',
