@@ -3,16 +3,21 @@ import type { FormEvent } from 'react'
 import {
   ApiClientError,
   buildLoginUrl,
+  createBeerReview,
   createEvent,
+  createEventBeer,
   getCurrentUser,
   getEvent,
+  getEventBeers,
+  getMyEvents,
   joinEvent,
+  patchMyBeerReview,
   type CurrentUser,
+  type EventBeer,
   type EventDetails,
+  type EventSummary,
 } from './api/client'
 import styles from './App.module.css'
-
-const EVENT_STORAGE_KEY = 'olsmaking:mvp:eventIds'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
 type PrimaryTab = 'oversikt' | 'arrangement'
@@ -24,23 +29,10 @@ const STATUS_LABELS: Record<number, string> = {
   3: 'Arkivert',
 }
 
-function loadStoredEventIds(): string[] {
-  const raw = window.localStorage.getItem(EVENT_STORAGE_KEY)
-
-  if (!raw) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-function persistEventIds(eventIds: string[]) {
-  window.localStorage.setItem(EVENT_STORAGE_KEY, JSON.stringify(eventIds))
+const PARTICIPANT_STATUS_LABELS: Record<number, string> = {
+  0: 'Invitert',
+  1: 'Aktiv',
+  2: 'Fjernet',
 }
 
 function getApiMessage(error: unknown): string {
@@ -58,6 +50,11 @@ function getApiMessage(error: unknown): string {
   return 'Noe gikk galt. Prov igjen.'
 }
 
+function trimOptional(value: string): string | null {
+  const next = value.trim()
+  return next.length ? next : null
+}
+
 function App() {
   const [authState, setAuthState] = useState<AuthState>('loading')
   const [user, setUser] = useState<CurrentUser | null>(null)
@@ -67,8 +64,22 @@ function App() {
   const [joinPending, setJoinPending] = useState(false)
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [latestEvent, setLatestEvent] = useState<EventDetails | null>(null)
-  const [eventList, setEventList] = useState<EventDetails[]>([])
+  const [eventList, setEventList] = useState<EventSummary[]>([])
+
+  const [workspacePending, setWorkspacePending] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null)
+  const [beerList, setBeerList] = useState<EventBeer[]>([])
+  const [selectedBeerId, setSelectedBeerId] = useState('')
+
+  const [beerName, setBeerName] = useState('')
+  const [beerBrewery, setBeerBrewery] = useState('')
+  const [beerStyle, setBeerStyle] = useState('')
+  const [beerAbv, setBeerAbv] = useState('')
+  const [addBeerPending, setAddBeerPending] = useState(false)
+
+  const [reviewRating, setReviewRating] = useState(3)
+  const [reviewNotes, setReviewNotes] = useState('')
+  const [reviewPending, setReviewPending] = useState(false)
 
   const queryValues = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
@@ -81,35 +92,61 @@ function App() {
   const [joinEventId, setJoinEventId] = useState(queryValues.eventId)
   const [joinCode, setJoinCode] = useState(queryValues.joinCode)
 
+  const selectedBeer = beerList.find((item) => item.id === selectedBeerId) ?? null
+
+  function upsertEventSummary(eventItem: EventSummary) {
+    setEventList((previous) => {
+      const next = [eventItem, ...previous.filter((item) => item.id !== eventItem.id)]
+      return next.sort((a, b) => b.updatedUtc.localeCompare(a.updatedUtc))
+    })
+  }
+
+  function upsertEventSummaryFromDetails(eventItem: EventDetails) {
+    upsertEventSummary({
+      id: eventItem.id,
+      name: eventItem.name,
+      status: eventItem.status,
+      visibility: eventItem.visibility,
+      isListed: eventItem.isListed,
+      ownerUserId: eventItem.ownerUserId,
+      updatedUtc: eventItem.updatedUtc,
+      createdUtc: eventItem.createdUtc,
+    })
+  }
+
+  async function loadEventWorkspace(eventId: string) {
+    setWorkspacePending(true)
+    try {
+      const [eventDetails, beers] = await Promise.all([getEvent(eventId), getEventBeers(eventId)])
+      setSelectedEvent(eventDetails)
+      setBeerList(beers)
+      setSelectedBeerId((previous) => {
+        if (previous && beers.some((item) => item.id === previous)) {
+          return previous
+        }
+
+        return beers[0]?.id ?? ''
+      })
+      upsertEventSummaryFromDetails(eventDetails)
+    } finally {
+      setWorkspacePending(false)
+    }
+  }
+
   useEffect(() => {
     let isMounted = true
 
     async function hydrate() {
       try {
-        const currentUser = await getCurrentUser()
+        const [currentUser, myEvents] = await Promise.all([getCurrentUser(), getMyEvents()])
 
         if (!isMounted) {
           return
         }
 
         setUser(currentUser)
+        setEventList(myEvents)
         setAuthState('authenticated')
-
-        const storedIds = loadStoredEventIds()
-        if (!storedIds.length) {
-          return
-        }
-
-        const loadedEvents = await Promise.allSettled(storedIds.map((id) => getEvent(id)))
-        if (!isMounted) {
-          return
-        }
-
-        const successfulEvents = loadedEvents
-          .filter((item): item is PromiseFulfilledResult<EventDetails> => item.status === 'fulfilled')
-          .map((item) => item.value)
-
-        setEventList(successfulEvents)
       } catch (error) {
         if (!isMounted) {
           return
@@ -134,15 +171,6 @@ function App() {
 
   const loginUrl = buildLoginUrl()
 
-  function upsertEvent(event: EventDetails) {
-    setEventList((previous) => {
-      const next = [event, ...previous.filter((item) => item.id !== event.id)]
-      const nextIds = next.map((item) => item.id)
-      persistEventIds(nextIds)
-      return next
-    })
-  }
-
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFeedbackMessage(null)
@@ -156,11 +184,10 @@ function App() {
     setCreatePending(true)
     try {
       const created = await createEvent(createName.trim())
-      setLatestEvent(created)
-      upsertEvent(created)
       setCreateName('')
       setActiveTab('oversikt')
       setFeedbackMessage('Arrangementet er opprettet.')
+      await loadEventWorkspace(created.id)
     } catch (error) {
       setErrorMessage(getApiMessage(error))
     } finally {
@@ -181,9 +208,7 @@ function App() {
     setJoinPending(true)
     try {
       const result = await joinEvent(joinEventId.trim(), joinCode.trim())
-      const eventDetails = await getEvent(result.eventId)
-      setLatestEvent(eventDetails)
-      upsertEvent(eventDetails)
+      await loadEventWorkspace(result.eventId)
       setActiveTab('oversikt')
       setFeedbackMessage(result.joined ? 'Du ble med i arrangementet.' : 'Du er allerede med i arrangementet.')
     } catch (error) {
@@ -198,11 +223,95 @@ function App() {
     setErrorMessage(null)
 
     try {
-      const eventDetails = await getEvent(eventId)
-      setLatestEvent(eventDetails)
-      upsertEvent(eventDetails)
+      await loadEventWorkspace(eventId)
     } catch (error) {
       setErrorMessage(getApiMessage(error))
+    }
+  }
+
+  async function handleAddBeer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+
+    if (!selectedEvent) {
+      setErrorMessage('Velg et arrangement forst.')
+      return
+    }
+
+    if (!beerName.trim()) {
+      setErrorMessage('Skriv inn et navn pa ol.')
+      return
+    }
+
+    let abvValue: number | null = null
+    if (beerAbv.trim()) {
+      const parsed = Number(beerAbv.replace(',', '.'))
+      if (!Number.isFinite(parsed)) {
+        setErrorMessage('ABV ma vare et gyldig tall, for eksempel 5.2.')
+        return
+      }
+
+      abvValue = parsed
+    }
+
+    setAddBeerPending(true)
+    try {
+      const created = await createEventBeer(selectedEvent.id, {
+        name: beerName.trim(),
+        brewery: trimOptional(beerBrewery),
+        style: trimOptional(beerStyle),
+        abv: abvValue,
+      })
+
+      setBeerList((previous) => [...previous, created])
+      setSelectedBeerId(created.id)
+      setBeerName('')
+      setBeerBrewery('')
+      setBeerStyle('')
+      setBeerAbv('')
+      setFeedbackMessage('Ol lagt til i arrangementet.')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setAddBeerPending(false)
+    }
+  }
+
+  async function handleReviewSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+
+    if (!selectedEvent || !selectedBeer) {
+      setErrorMessage('Velg et arrangement og en ol forst.')
+      return
+    }
+
+    const payload = {
+      rating: reviewRating,
+      notes: trimOptional(reviewNotes),
+    }
+
+    setReviewPending(true)
+    try {
+      await patchMyBeerReview(selectedEvent.id, selectedBeer.id, payload)
+      setFeedbackMessage('Vurdering oppdatert.')
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 404) {
+        try {
+          await createBeerReview(selectedEvent.id, selectedBeer.id, payload)
+          setFeedbackMessage('Vurdering lagret.')
+          return
+        } catch (createError) {
+          setErrorMessage(getApiMessage(createError))
+          return
+        }
+      }
+
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setReviewPending(false)
     }
   }
 
@@ -292,16 +401,171 @@ function App() {
             )}
           </section>
 
-          {latestEvent ? (
+          {workspacePending ? (
             <section className={styles.panel}>
-              <h2 className={styles.sectionTitle}>Sammendrag</h2>
-              <p className={styles.eventName}>{latestEvent.name}</p>
-              <p className={styles.eventMeta}>Arrangement-ID: {latestEvent.id}</p>
-              <p className={styles.eventMeta}>Bli-med-kode: {latestEvent.joinCode}</p>
-              <p className={styles.eventMeta}>Status: {STATUS_LABELS[latestEvent.status] ?? 'Ukjent'}</p>
-              <p className={styles.eventMeta}>Din rolle: {latestEvent.currentUserRole}</p>
-              <p className={styles.eventMeta}>Deltakere: {latestEvent.participants.length}</p>
+              <p className={styles.muted}>Laster arbeidsflate...</p>
             </section>
+          ) : null}
+
+          {selectedEvent ? (
+            <>
+              <section className={styles.panel}>
+                <h2 className={styles.sectionTitle}>Arrangement</h2>
+                <p className={styles.eventName}>{selectedEvent.name}</p>
+                <p className={styles.eventMeta}>Arrangement-ID: {selectedEvent.id}</p>
+                <p className={styles.eventMeta}>Bli-med-kode: {selectedEvent.joinCode}</p>
+                <p className={styles.eventMeta}>Status: {STATUS_LABELS[selectedEvent.status] ?? 'Ukjent'}</p>
+                <p className={styles.eventMeta}>Din rolle: {selectedEvent.currentUserRole}</p>
+                <p className={styles.eventMeta}>Deltakere: {selectedEvent.participants.length}</p>
+                <ul className={styles.participantList}>
+                  {selectedEvent.participants.map((participant) => (
+                    <li key={participant.userId} className={styles.participantRow}>
+                      <span>{participant.nickname ?? 'Ukjent bruker'}</span>
+                      <span className={styles.participantMeta}>
+                        {PARTICIPANT_STATUS_LABELS[participant.status] ?? `Status ${participant.status}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className={styles.panel}>
+                <h2 className={styles.sectionTitle}>Ol i arrangementet</h2>
+                {beerList.length ? (
+                  <ul className={styles.beerList}>
+                    {beerList.map((beer) => (
+                      <li key={beer.id} className={beer.id === selectedBeerId ? styles.beerRowActive : styles.beerRow}>
+                        <div>
+                          <p className={styles.eventName}>{beer.name}</p>
+                          <p className={styles.eventMeta}>
+                            {[beer.brewery, beer.style, beer.abv !== null ? `${beer.abv}%` : null]
+                              .filter(Boolean)
+                              .join(' · ') || 'Ingen detaljer'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.buttonSecondary}
+                          onClick={() => {
+                            setSelectedBeerId(beer.id)
+                          }}
+                        >
+                          Velg
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.muted}>Ingen ol registrert enna.</p>
+                )}
+
+                <form className={styles.form} onSubmit={handleAddBeer}>
+                  <label className={styles.label} htmlFor="beer-name">
+                    Navn pa ol
+                  </label>
+                  <input
+                    id="beer-name"
+                    className={styles.input}
+                    value={beerName}
+                    onChange={(event) => {
+                      setBeerName(event.target.value)
+                    }}
+                    maxLength={200}
+                    placeholder="For eksempel Session IPA"
+                  />
+
+                  <label className={styles.label} htmlFor="beer-brewery">
+                    Bryggeri (valgfritt)
+                  </label>
+                  <input
+                    id="beer-brewery"
+                    className={styles.input}
+                    value={beerBrewery}
+                    onChange={(event) => {
+                      setBeerBrewery(event.target.value)
+                    }}
+                    maxLength={200}
+                  />
+
+                  <label className={styles.label} htmlFor="beer-style">
+                    Stil (valgfritt)
+                  </label>
+                  <input
+                    id="beer-style"
+                    className={styles.input}
+                    value={beerStyle}
+                    onChange={(event) => {
+                      setBeerStyle(event.target.value)
+                    }}
+                    maxLength={100}
+                  />
+
+                  <label className={styles.label} htmlFor="beer-abv">
+                    ABV (valgfritt)
+                  </label>
+                  <input
+                    id="beer-abv"
+                    className={styles.input}
+                    value={beerAbv}
+                    onChange={(event) => {
+                      setBeerAbv(event.target.value)
+                    }}
+                    inputMode="decimal"
+                    placeholder="For eksempel 5.2"
+                  />
+
+                  <button type="submit" className={styles.buttonPrimary} disabled={addBeerPending}>
+                    {addBeerPending ? 'Legger til...' : 'Legg til ol'}
+                  </button>
+                </form>
+              </section>
+
+              <section className={styles.panel}>
+                <h2 className={styles.sectionTitle}>Din vurdering</h2>
+                {selectedBeer ? (
+                  <form className={styles.form} onSubmit={handleReviewSubmit}>
+                    <p className={styles.eventMeta}>Valgt ol: {selectedBeer.name}</p>
+
+                    <label className={styles.label} htmlFor="review-rating">
+                      Poeng: {reviewRating} / 6
+                    </label>
+                    <input
+                      id="review-rating"
+                      className={styles.rangeInput}
+                      type="range"
+                      min={1}
+                      max={6}
+                      step={1}
+                      value={reviewRating}
+                      onChange={(event) => {
+                        setReviewRating(Number(event.target.value))
+                      }}
+                    />
+                    <p className={styles.muted}>Flytt slideren for a velge poeng fra 1 til 6.</p>
+
+                    <label className={styles.label} htmlFor="review-notes">
+                      Notater
+                    </label>
+                    <textarea
+                      id="review-notes"
+                      className={styles.textArea}
+                      value={reviewNotes}
+                      onChange={(event) => {
+                        setReviewNotes(event.target.value)
+                      }}
+                      maxLength={2000}
+                      placeholder="Kort smaksvurdering"
+                    />
+
+                    <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
+                      {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
+                    </button>
+                  </form>
+                ) : (
+                  <p className={styles.muted}>Velg en ol for a registrere vurdering.</p>
+                )}
+              </section>
+            </>
           ) : null}
         </>
       ) : (

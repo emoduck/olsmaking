@@ -28,9 +28,71 @@ public sealed class ApiBehaviorTests
 
         using var loginResponse = await client.GetAsync("/api/auth/login");
         using var meResponse = await client.GetAsync("/api/users/me");
+        using var myEventsResponse = await client.GetAsync("/api/events/mine");
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, loginResponse.StatusCode);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, meResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, myEventsResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task EventsMine_ReturnsOwnedEvents_ForAuthenticatedUser()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var firstCreateResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Older event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, firstCreateResponse.StatusCode);
+        var firstEvent = await firstCreateResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        using var secondCreateResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Newer event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, secondCreateResponse.StatusCode);
+        var secondEvent = await secondCreateResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        using var myEventsResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/events/mine",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.OK, myEventsResponse.StatusCode);
+        var events = await myEventsResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(JsonValueKind.Array, events.ValueKind);
+        Assert.Equal(2, events.GetArrayLength());
+
+        var newest = events[0];
+        var older = events[1];
+
+        Assert.Equal(secondEvent.GetProperty("id").GetGuid(), newest.GetProperty("id").GetGuid());
+        Assert.Equal(firstEvent.GetProperty("id").GetGuid(), older.GetProperty("id").GetGuid());
+
+        Assert.Equal("Newer event", newest.GetProperty("name").GetString());
+        Assert.True(newest.TryGetProperty("status", out _));
+        Assert.True(newest.TryGetProperty("visibility", out _));
+        Assert.True(newest.TryGetProperty("isListed", out _));
+        Assert.True(newest.TryGetProperty("ownerUserId", out _));
+        Assert.True(newest.TryGetProperty("updatedUtc", out _));
+        Assert.True(newest.TryGetProperty("createdUtc", out _));
+        Assert.False(newest.TryGetProperty("joinCode", out _));
     }
 
     [Fact]

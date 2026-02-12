@@ -295,6 +295,41 @@ if (auth0Settings.IsConfigured)
         });
     }).RequireAuthorization();
 
+    eventsGroup.MapGet("/mine", async (ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+
+        var events = await dbContext.Events
+            .AsNoTracking()
+            .Where(x => x.OwnerUserId == currentUser.Id
+                || x.Participants.Any(p => p.UserId == currentUser.Id && p.Status == EventParticipantStatus.Active))
+            .Select(x => new
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Status = x.Status,
+                Visibility = x.Visibility,
+                IsListed = x.IsListed,
+                OwnerUserId = x.OwnerUserId,
+                UpdatedUtc = x.UpdatedUtc,
+                CreatedUtc = x.CreatedUtc,
+            })
+            .ToListAsync(cancellationToken);
+
+        events = events
+            .OrderByDescending(x => x.UpdatedUtc)
+            .ToList();
+
+        return Results.Ok(events);
+    }).RequireAuthorization();
+
     eventsGroup.MapGet("/{eventId:guid}", async (Guid eventId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
     {
         var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
@@ -862,6 +897,7 @@ if (auth0Settings.IsConfigured)
 else
 {
     eventsGroup.MapPost("", AuthUnavailable);
+    eventsGroup.MapGet("/mine", AuthUnavailable);
     eventsGroup.MapGet("/{eventId:guid}", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers", AuthUnavailable);
     eventsGroup.MapGet("/{eventId:guid}/beers", AuthUnavailable);

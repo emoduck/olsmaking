@@ -48,6 +48,53 @@ export interface EventDetails {
   participants: EventParticipant[]
 }
 
+export interface EventSummary {
+  id: string
+  name: string
+  status: number
+  visibility: number
+  isListed: boolean
+  ownerUserId: string
+  updatedUtc: string
+  createdUtc: string
+}
+
+export interface EventBeer {
+  id: string
+  eventId: string
+  name: string
+  brewery: string | null
+  style: string | null
+  abv: number | null
+  createdUtc: string
+}
+
+export interface BeerReview {
+  id: string
+  eventId: string
+  beerId: string
+  userId: string
+  rating: number
+  notes: string | null
+  aromaNotes: string | null
+  appearanceNotes: string | null
+  flavorNotes: string | null
+  createdUtc: string
+  updatedUtc: string
+}
+
+export interface CreateEventBeerRequest {
+  name: string
+  brewery?: string | null
+  style?: string | null
+  abv?: number | null
+}
+
+export interface UpsertBeerReviewRequest {
+  rating: number
+  notes?: string | null
+}
+
 interface CreateEventResponse {
   id: string
 }
@@ -136,4 +183,33 @@ export function joinEvent(eventId: string, joinCode: string): Promise<JoinEventR
 
 export function getEvent(eventId: string): Promise<EventDetails> {
   return requestJson<EventDetails>(`/api/events/${encodeURIComponent(eventId)}`, { method: 'GET' })
+}
+
+export function getMyEvents(): Promise<EventSummary[]> {
+  return requestJson<EventSummary[]>('/api/events/mine', { method: 'GET' })
+}
+
+export function getEventBeers(eventId: string): Promise<EventBeer[]> {
+  return requestJson<EventBeer[]>(`/api/events/${encodeURIComponent(eventId)}/beers`, { method: 'GET' })
+}
+
+export function createEventBeer(eventId: string, payload: CreateEventBeerRequest): Promise<EventBeer> {
+  return requestJson<EventBeer>(`/api/events/${encodeURIComponent(eventId)}/beers`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function createBeerReview(eventId: string, beerId: string, payload: UpsertBeerReviewRequest): Promise<BeerReview> {
+  return requestJson<BeerReview>(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}/reviews`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function patchMyBeerReview(eventId: string, beerId: string, payload: UpsertBeerReviewRequest): Promise<BeerReview> {
+  return requestJson<BeerReview>(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}/reviews/me`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 }

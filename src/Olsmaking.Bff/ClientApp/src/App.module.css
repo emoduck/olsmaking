@@ -88,8 +88,31 @@
   background: var(--color-bg-surface);
 }
 
+.textArea {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-8);
+  padding: var(--space-12);
+  font: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  resize: vertical;
+}
+
+.rangeInput {
+  width: 100%;
+  accent-color: var(--color-primary-700);
+}
+
 .input:focus-visible {
   border-color: var(--color-primary-600);
+  outline: 2px solid var(--color-primary-200);
+  outline-offset: 1px;
+}
+
+.textArea:focus-visible,
+.rangeInput:focus-visible {
   outline: 2px solid var(--color-primary-200);
   outline-offset: 1px;
 }
@@ -163,6 +186,45 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-14);
   word-break: break-all;
+}
+
+.participantList,
+.beerList {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-12) 0 0;
+  display: grid;
+  gap: var(--space-8);
+}
+
+.participantRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-8);
+  padding: var(--space-8) var(--space-12);
+}
+
+.participantMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-14);
+}
+
+.beerRow,
+.beerRowActive {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-8);
+  padding: var(--space-12);
+}
+
+.beerRowActive {
+  border-color: var(--color-primary-300);
+  background: var(--color-primary-50);
 }
 
 .bottomNav {
