@@ -117,7 +117,7 @@ public sealed class OlsmakingDbContext(DbContextOptions<OlsmakingDbContext> opti
             entity.HasOne(x => x.Event)
                 .WithMany(x => x.BeerReviews)
                 .HasForeignKey(x => x.EventId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(x => x.Beer)
                 .WithMany(x => x.BeerReviews)
