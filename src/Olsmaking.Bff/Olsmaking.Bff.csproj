@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <SpaRoot>ClientApp\</SpaRoot>
+    <UserSecretsId>a1fd6cae-1a49-4a8c-a771-d23de53b79d9</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

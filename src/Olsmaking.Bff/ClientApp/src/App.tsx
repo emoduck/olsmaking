@@ -59,7 +59,11 @@ function getApiMessage(error: unknown): string {
     return error.message
   }
 
-  return 'Noe gikk galt. Prov igjen.'
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return 'Noe gikk galt. Prøv igjen.'
 }
 
 function trimOptional(value: string): string | null {
@@ -628,7 +632,7 @@ function App() {
       <main className={styles.appShell}>
         <section className={styles.panel}>
           <h1 className={styles.title}>Kunne ikke laste appen</h1>
-          <p className={styles.error}>{errorMessage ?? 'Noe gikk galt. Prov igjen.'}</p>
+          <p className={styles.error}>{errorMessage ?? 'Noe gikk galt. Prøv igjen.'}</p>
           <a className={styles.buttonPrimary} href={loginUrl}>
             Logg inn pa nytt
           </a>

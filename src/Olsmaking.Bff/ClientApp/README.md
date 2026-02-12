@@ -34,6 +34,10 @@ Backend URLs:
 Health check:
 - `http://localhost:5287/api/health`
 
+Dev proxy behavior:
+- Vite proxies `/api`, `/signin-oidc`, and `/signout-callback-oidc` to `http://localhost:5287`.
+- Start the BFF host before testing login or API calls from `http://localhost:5173`.
+
 ## Local Commands
 - `npm run typecheck`
 - `npm run lint`

@@ -27,7 +27,7 @@ Define how this repository handles local secrets safely using `dotnet user-secre
 ## Dependencies / Assumptions
 - .NET SDK is installed locally.
 - Development environment is used when resolving user secrets.
-- Secret keys follow hierarchical naming (for example, `ExternalApi:ApiKey`).
+- Secret keys follow hierarchical naming (for example, `Auth0:ClientSecret`).
 
 ## Open Questions
 - Should we standardize key naming patterns in a central conventions doc as more integrations are added?
@@ -35,12 +35,22 @@ Define how this repository handles local secrets safely using `dotnet user-secre
 ## Workflow
 1. Initialize user secrets only when a real secret is required:
    - `dotnet user-secrets init --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
-2. Set secret values:
-   - `dotnet user-secrets set "ExternalApi:ApiKey" "<value>" --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
-3. Verify local values are present:
+2. Set local Auth0 secrets using the setup script (recommended):
+   - `pwsh -File ./scripts/set-user-secrets.ps1`
+   - Optional audience placeholder: `pwsh -File ./scripts/set-user-secrets.ps1 -IncludeAudiencePlaceholder`
+3. Manual fallback (if script is unavailable):
+   - `dotnet user-secrets set "Auth0:Domain" "<tenant-domain>" --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
+   - `dotnet user-secrets set "Auth0:ClientId" "<client-id>" --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
+   - `dotnet user-secrets set "Auth0:ClientSecret" "<client-secret>" --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
+   - `dotnet user-secrets set "Auth0:Audience" "<audience>" --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
+4. Verify local values are present:
    - `dotnet user-secrets list --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
-4. Read settings from configuration in code:
-   - `builder.Configuration["ExternalApi:ApiKey"]` or typed options.
+5. Read settings from configuration in code:
+   - `builder.Configuration["Auth0:Domain"]` or typed options binding.
+6. Validate auth-enabled local behavior:
+   - `dotnet run --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
+   - Health: `http://localhost:5287/api/health`
+   - Login endpoint: `http://localhost:5287/api/auth/login?returnUrl=/`
 
 ## Guardrails
 - Never commit plaintext secrets to `appsettings.json` or `appsettings.Development.json`.
@@ -49,7 +59,8 @@ Define how this repository handles local secrets safely using `dotnet user-secre
 
 ## Validation Plan
 - Backend: `dotnet build`
-- Runtime check: run in Development and confirm secret-backed settings resolve.
+- Secrets check: `dotnet user-secrets list --project src/Olsmaking.Bff/Olsmaking.Bff.csproj`
+- Runtime check: run in Development and confirm `/api/auth/login` is available when Auth0 secrets are configured.
 
 ## ADR Needed?
 - No

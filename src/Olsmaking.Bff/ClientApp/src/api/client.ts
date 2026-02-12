@@ -151,7 +151,11 @@ async function parseProblem(response: Response): Promise<ApiProblemDetails | und
     return undefined
   }
 
-  return (await response.json()) as ApiProblemDetails
+  try {
+    return (await response.json()) as ApiProblemDetails
+  } catch {
+    return undefined
+  }
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -168,7 +172,20 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new ApiClientError(response.status, getErrorMessage(response.status, problem), problem)
   }
 
-  return (await response.json()) as T
+  const contentType = response.headers.get('content-type')
+
+  if (!contentType?.includes('application/json')) {
+    throw new ApiClientError(
+      502,
+      'Uventet svar fra serveren. Kontroller at backend er startet og at lokal proxy er aktiv.',
+    )
+  }
+
+  try {
+    return (await response.json()) as T
+  } catch {
+    throw new ApiClientError(502, 'Kunne ikke tolke svaret fra serveren. Prøv igjen.')
+  }
 }
 
 async function requestVoid(url: string, init?: RequestInit): Promise<void> {
@@ -187,7 +204,8 @@ async function requestVoid(url: string, init?: RequestInit): Promise<void> {
 }
 
 export function buildLoginUrl(returnUrl = window.location.pathname + window.location.search): string {
-  const params = new URLSearchParams({ returnUrl })
+  const safeReturnUrl = returnUrl === '/signin-oidc' || returnUrl === '/signout-callback-oidc' ? '/' : returnUrl
+  const params = new URLSearchParams({ returnUrl: safeReturnUrl })
   return `/api/auth/login?${params.toString()}`
 }
 
