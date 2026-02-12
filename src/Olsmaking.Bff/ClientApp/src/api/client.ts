@@ -93,6 +93,9 @@ export interface CreateEventBeerRequest {
 export interface UpsertBeerReviewRequest {
   rating: number
   notes?: string | null
+  aromaNotes?: string | null
+  appearanceNotes?: string | null
+  flavorNotes?: string | null
 }
 
 interface CreateEventResponse {
@@ -202,6 +205,10 @@ export function getEvent(eventId: string): Promise<EventDetails> {
 
 export function getMyEvents(): Promise<EventSummary[]> {
   return requestJson<EventSummary[]>('/api/events/mine', { method: 'GET' })
+}
+
+export function getOpenEvents(): Promise<EventSummary[]> {
+  return requestJson<EventSummary[]>('/api/events/open', { method: 'GET' })
 }
 
 export function getEventBeers(eventId: string): Promise<EventBeer[]> {

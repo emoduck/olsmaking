@@ -32,6 +32,14 @@
   color: var(--color-text-primary);
 }
 
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+
 .panel {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-default);
@@ -163,6 +171,39 @@
   margin: var(--space-12) 0 0;
   display: grid;
   gap: var(--space-12);
+}
+
+.filterTabs {
+  display: inline-flex;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-8);
+  overflow: hidden;
+}
+
+.filterTab,
+.filterTabActive {
+  min-height: 36px;
+  border: 0;
+  border-right: 1px solid var(--color-border-default);
+  padding: 0 var(--space-12);
+  font: inherit;
+  font-size: var(--font-size-14);
+}
+
+.filterTab {
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+}
+
+.filterTabActive {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  font-weight: 600;
+}
+
+.filterTab:last-child,
+.filterTabActive:last-child {
+  border-right: 0;
 }
 
 .eventRow {

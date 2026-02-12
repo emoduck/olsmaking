@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Olsmaking.Bff.Data;
+using Olsmaking.Bff.Domain;
 using Olsmaking.Bff.Tests.Infrastructure;
 using Xunit;
 
@@ -32,10 +33,12 @@ public sealed class ApiBehaviorTests
         using var loginResponse = await client.GetAsync("/api/auth/login");
         using var meResponse = await client.GetAsync("/api/users/me");
         using var myEventsResponse = await client.GetAsync("/api/events/mine");
+        using var openEventsResponse = await client.GetAsync("/api/events/open");
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, loginResponse.StatusCode);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, meResponse.StatusCode);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, myEventsResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, openEventsResponse.StatusCode);
     }
 
     [Fact]
@@ -96,6 +99,182 @@ public sealed class ApiBehaviorTests
         Assert.True(newest.TryGetProperty("updatedUtc", out _));
         Assert.True(newest.TryGetProperty("createdUtc", out _));
         Assert.False(newest.TryGetProperty("joinCode", out _));
+    }
+
+    [Fact]
+    public async Task EventsOpen_ReturnsListedOpenEvents_ForAuthenticatedUser()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createOpenListedEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Discoverable Event",
+                visibility = EventVisibility.Open,
+                isListed = true,
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createOpenListedEventResponse.StatusCode);
+        var createdEvent = await createOpenListedEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var createdEventId = createdEvent.GetProperty("id").GetGuid();
+
+        using var openEventsResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/events/open",
+            "seeker-sub");
+
+        Assert.Equal(HttpStatusCode.OK, openEventsResponse.StatusCode);
+        var events = await openEventsResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(JsonValueKind.Array, events.ValueKind);
+        Assert.Single(events.EnumerateArray());
+
+        var discoverableEvent = events[0];
+        Assert.Equal(createdEventId, discoverableEvent.GetProperty("id").GetGuid());
+        Assert.Equal("Discoverable Event", discoverableEvent.GetProperty("name").GetString());
+        Assert.Equal((int)EventStatus.Open, discoverableEvent.GetProperty("status").GetInt32());
+        Assert.Equal((int)EventVisibility.Open, discoverableEvent.GetProperty("visibility").GetInt32());
+        Assert.True(discoverableEvent.GetProperty("isListed").GetBoolean());
+        Assert.True(discoverableEvent.TryGetProperty("ownerUserId", out _));
+        Assert.True(discoverableEvent.TryGetProperty("updatedUtc", out _));
+        Assert.True(discoverableEvent.TryGetProperty("createdUtc", out _));
+        Assert.False(discoverableEvent.TryGetProperty("joinCode", out _));
+    }
+
+    [Fact]
+    public async Task EventsOpen_ExcludesPrivateAndUnlistedEvents()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createListedOpenEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Listed Open Event",
+                visibility = EventVisibility.Open,
+                isListed = true,
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createListedOpenEventResponse.StatusCode);
+        var listedOpenEvent = await createListedOpenEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var listedOpenEventId = listedOpenEvent.GetProperty("id").GetGuid();
+
+        using var createPrivateEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Private Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createPrivateEventResponse.StatusCode);
+
+        using var createOpenUnlistedEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Open Unlisted Event",
+                visibility = EventVisibility.Open,
+                isListed = false,
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createOpenUnlistedEventResponse.StatusCode);
+
+        using var openEventsResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/events/open",
+            "seeker-sub");
+
+        Assert.Equal(HttpStatusCode.OK, openEventsResponse.StatusCode);
+        var events = await openEventsResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(JsonValueKind.Array, events.ValueKind);
+        Assert.Single(events.EnumerateArray());
+        Assert.Equal(listedOpenEventId, events[0].GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task EventsOpen_ExcludesEventsWhereCurrentUserWasRemoved()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Removed Participant Event",
+                visibility = EventVisibility.Open,
+                isListed = true,
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var eventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = eventPayload.GetProperty("id").GetGuid();
+        var joinCode = eventPayload.GetProperty("joinCode").GetString();
+
+        Assert.False(string.IsNullOrWhiteSpace(joinCode));
+
+        using var seekerMeResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/users/me",
+            "seeker-sub");
+
+        Assert.Equal(HttpStatusCode.OK, seekerMeResponse.StatusCode);
+        var seekerPayload = await seekerMeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var seekerUserId = seekerPayload.GetProperty("id").GetGuid();
+
+        using var joinResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/join",
+            "seeker-sub",
+            new
+            {
+                joinCode,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+
+        using var removeParticipantResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/participants/{seekerUserId}",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, removeParticipantResponse.StatusCode);
+
+        using var openEventsResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/events/open",
+            "seeker-sub");
+
+        Assert.Equal(HttpStatusCode.OK, openEventsResponse.StatusCode);
+        var events = await openEventsResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(JsonValueKind.Array, events.ValueKind);
+        Assert.Empty(events.EnumerateArray());
     }
 
     [Fact]

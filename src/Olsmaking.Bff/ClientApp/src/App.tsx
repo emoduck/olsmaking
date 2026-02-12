@@ -13,6 +13,7 @@ import {
   getMyBeerReview,
   getMyEventFavorites,
   getMyEvents,
+  getOpenEvents,
   joinEvent,
   patchMyBeerReview,
   removeBeerFavorite,
@@ -25,6 +26,7 @@ import styles from './App.module.css'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
 type PrimaryTab = 'oversikt' | 'arrangement'
+type OverviewFilter = 'mine' | 'open'
 
 const STATUS_LABELS: Record<number, string> = {
   0: 'Utkast',
@@ -68,7 +70,9 @@ function App() {
   const [joinPending, setJoinPending] = useState(false)
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [eventList, setEventList] = useState<EventSummary[]>([])
+  const [myEventList, setMyEventList] = useState<EventSummary[]>([])
+  const [openEventList, setOpenEventList] = useState<EventSummary[]>([])
+  const [overviewFilter, setOverviewFilter] = useState<OverviewFilter>('mine')
 
   const [workspacePending, setWorkspacePending] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null)
@@ -85,6 +89,9 @@ function App() {
 
   const [reviewRating, setReviewRating] = useState(3)
   const [reviewNotes, setReviewNotes] = useState('')
+  const [reviewAromaNotes, setReviewAromaNotes] = useState('')
+  const [reviewAppearanceNotes, setReviewAppearanceNotes] = useState('')
+  const [reviewFlavorNotes, setReviewFlavorNotes] = useState('')
   const [reviewPending, setReviewPending] = useState(false)
 
   const queryValues = useMemo(() => {
@@ -103,6 +110,7 @@ function App() {
   const selectedBeerReviewId = selectedBeer?.id ?? ''
   const favoriteBeerIdSet = useMemo(() => new Set(favoriteBeerIds), [favoriteBeerIds])
   const favoritePendingBeerIdSet = useMemo(() => new Set(favoritePendingBeerIds), [favoritePendingBeerIds])
+  const overviewList = overviewFilter === 'mine' ? myEventList : openEventList
 
   useEffect(() => {
     let isActive = true
@@ -110,6 +118,9 @@ function App() {
     if (!selectedEventId || !selectedBeerReviewId) {
       setReviewRating(3)
       setReviewNotes('')
+      setReviewAromaNotes('')
+      setReviewAppearanceNotes('')
+      setReviewFlavorNotes('')
       return () => {
         isActive = false
       }
@@ -125,6 +136,9 @@ function App() {
 
         setReviewRating(review.rating)
         setReviewNotes(review.notes ?? '')
+        setReviewAromaNotes(review.aromaNotes ?? '')
+        setReviewAppearanceNotes(review.appearanceNotes ?? '')
+        setReviewFlavorNotes(review.flavorNotes ?? '')
       } catch (error) {
         if (!isActive) {
           return
@@ -133,11 +147,17 @@ function App() {
         if (error instanceof ApiClientError && error.status === 404) {
           setReviewRating(3)
           setReviewNotes('')
+          setReviewAromaNotes('')
+          setReviewAppearanceNotes('')
+          setReviewFlavorNotes('')
           return
         }
 
         setReviewRating(3)
         setReviewNotes('')
+        setReviewAromaNotes('')
+        setReviewAppearanceNotes('')
+        setReviewFlavorNotes('')
         setErrorMessage(getApiMessage(error))
       }
     }
@@ -150,10 +170,11 @@ function App() {
   }, [selectedBeerReviewId, selectedEventId])
 
   function upsertEventSummary(eventItem: EventSummary) {
-    setEventList((previous) => {
+    setMyEventList((previous) => {
       const next = [eventItem, ...previous.filter((item) => item.id !== eventItem.id)]
       return next.sort((a, b) => b.updatedUtc.localeCompare(a.updatedUtc))
     })
+    setOpenEventList((previous) => previous.filter((item) => item.id !== eventItem.id))
   }
 
   function upsertEventSummaryFromDetails(eventItem: EventDetails) {
@@ -240,14 +261,15 @@ function App() {
 
     async function hydrate() {
       try {
-        const [currentUser, myEvents] = await Promise.all([getCurrentUser(), getMyEvents()])
+        const [currentUser, myEvents, openEvents] = await Promise.all([getCurrentUser(), getMyEvents(), getOpenEvents()])
 
         if (!isMounted) {
           return
         }
 
         setUser(currentUser)
-        setEventList(myEvents)
+        setMyEventList(myEvents)
+        setOpenEventList(openEvents.filter((item) => !myEvents.some((myEvent) => myEvent.id === item.id)))
         setAuthState('authenticated')
       } catch (error) {
         if (!isMounted) {
@@ -393,6 +415,9 @@ function App() {
     const payload = {
       rating: reviewRating,
       notes: trimOptional(reviewNotes),
+      aromaNotes: trimOptional(reviewAromaNotes),
+      appearanceNotes: trimOptional(reviewAppearanceNotes),
+      flavorNotes: trimOptional(reviewFlavorNotes),
     }
 
     setReviewPending(true)
@@ -475,10 +500,37 @@ function App() {
       {activeTab === 'oversikt' ? (
         <>
           <section className={styles.panel}>
-            <h2 className={styles.sectionTitle}>Dine arrangementer</h2>
-            {eventList.length ? (
+            <div className={styles.sectionHeader}>
+              <h2 className={styles.sectionTitle}>Arrangementer</h2>
+              <div className={styles.filterTabs} role="tablist" aria-label="Arrangementfilter">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={overviewFilter === 'mine'}
+                  className={overviewFilter === 'mine' ? styles.filterTabActive : styles.filterTab}
+                  onClick={() => {
+                    setOverviewFilter('mine')
+                  }}
+                >
+                  Mine
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={overviewFilter === 'open'}
+                  className={overviewFilter === 'open' ? styles.filterTabActive : styles.filterTab}
+                  onClick={() => {
+                    setOverviewFilter('open')
+                  }}
+                >
+                  Apne
+                </button>
+              </div>
+            </div>
+
+            {overviewList.length ? (
               <ul className={styles.eventList}>
-                {eventList.map((eventItem) => (
+                {overviewList.map((eventItem) => (
                   <li key={eventItem.id} className={styles.eventRow}>
                     <div>
                       <p className={styles.eventName}>{eventItem.name}</p>
@@ -499,7 +551,11 @@ function App() {
                 ))}
               </ul>
             ) : (
-              <p className={styles.muted}>Ingen arrangementer enna. Opprett et nytt for a starte.</p>
+              <p className={styles.muted}>
+                {overviewFilter === 'mine'
+                  ? 'Ingen arrangementer enna. Opprett et nytt for a starte.'
+                  : 'Ingen apne arrangementer akkurat na.'}
+              </p>
             )}
           </section>
 
@@ -679,6 +735,48 @@ function App() {
                       }}
                       maxLength={2000}
                       placeholder="Kort smaksvurdering"
+                    />
+
+                    <label className={styles.label} htmlFor="review-aroma-notes">
+                      Aroma (valgfritt)
+                    </label>
+                    <textarea
+                      id="review-aroma-notes"
+                      className={styles.textArea}
+                      value={reviewAromaNotes}
+                      onChange={(event) => {
+                        setReviewAromaNotes(event.target.value)
+                      }}
+                      maxLength={2000}
+                      placeholder="Hva lukter du?"
+                    />
+
+                    <label className={styles.label} htmlFor="review-appearance-notes">
+                      Utseende (valgfritt)
+                    </label>
+                    <textarea
+                      id="review-appearance-notes"
+                      className={styles.textArea}
+                      value={reviewAppearanceNotes}
+                      onChange={(event) => {
+                        setReviewAppearanceNotes(event.target.value)
+                      }}
+                      maxLength={2000}
+                      placeholder="Skum, farge og klarhet"
+                    />
+
+                    <label className={styles.label} htmlFor="review-flavor-notes">
+                      Smak (valgfritt)
+                    </label>
+                    <textarea
+                      id="review-flavor-notes"
+                      className={styles.textArea}
+                      value={reviewFlavorNotes}
+                      onChange={(event) => {
+                        setReviewFlavorNotes(event.target.value)
+                      }}
+                      maxLength={2000}
+                      placeholder="Smaksnotater og avslutning"
                     />
 
                     <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
