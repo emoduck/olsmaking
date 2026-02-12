@@ -1,9 +1,62 @@
 :root {
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-  line-height: 1.5;
+  --color-primary-50: #eef4fb;
+  --color-primary-200: #c4d5ea;
+  --color-primary-300: #9db8d7;
+  --color-primary-600: #2b4b75;
+  --color-primary-700: #1f3a5f;
+
+  --color-gray-900: #111827;
+  --color-gray-700: #374151;
+  --color-gray-600: #4b5563;
+  --color-gray-500: #6b7280;
+  --color-gray-300: #d1d5db;
+  --color-gray-200: #e5e7eb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-50: #f9fafb;
+
+  --color-bg-app: #f9fafb;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #f3f4f6;
+
+  --color-border-default: #e5e7eb;
+  --color-border-strong: #d1d5db;
+
+  --color-success: #166534;
+  --color-success-bg: #ecfdf3;
+  --color-success-border: #86efac;
+  --color-error: #b42318;
+  --color-error-bg: #fef3f2;
+  --color-error-border: #fecdca;
+
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+  --color-text-on-primary: #ffffff;
+
+  --font-family-base: Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-12: 0.75rem;
+  --font-size-14: 0.875rem;
+  --font-size-16: 1rem;
+  --font-size-18: 1.125rem;
+  --font-size-24: 1.5rem;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.06);
+
+  font-family: var(--font-family-base);
+  line-height: var(--line-height-normal);
   font-weight: 400;
-  color: #1f160f;
-  background: radial-gradient(circle at 10% 10%, #fff7ea 0%, #ffe8cd 38%, #ffdcb8 100%);
+  color: var(--color-text-primary);
+  background: var(--color-bg-app);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -18,11 +71,14 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--color-bg-app);
 }
 
-code {
-  font-family: "Consolas", "Courier New", monospace;
-  background: #ffffff99;
-  border-radius: 0.4rem;
-  padding: 0.08rem 0.3rem;
+#root {
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
 }
