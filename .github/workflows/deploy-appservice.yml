@@ -6,6 +6,13 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: deploy-appservice-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   infra-gate:
     runs-on: ubuntu-latest
@@ -30,16 +37,87 @@ jobs:
             echo "INFRA_READY is not true. Azure deployment is intentionally skipped."
           fi
 
-  deploy-placeholder:
+  deploy-app:
     runs-on: ubuntu-latest
     needs: infra-gate
     if: needs.infra-gate.outputs.infra_ready == 'true'
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
-      - name: Deployment gate passed
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Olsmaking.Bff/ClientApp/package-lock.json
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore .NET solution
+        run: dotnet restore Olsmaking.slnx
+
+      - name: Install dotnet-ef
         run: |
-          echo "Infrastructure readiness gate passed."
-          echo "Add Azure publish steps only after infra provisioning workflow is in place."
+          dotnet tool install --global dotnet-ef --version "10.*"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Apply database migrations
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.SQL_CONNECTION_STRING }}
+        run: dotnet ef database update --project src/Olsmaking.Bff/Olsmaking.Bff.csproj --startup-project src/Olsmaking.Bff/Olsmaking.Bff.csproj
+
+      - name: Publish BFF artifact
+        run: dotnet publish src/Olsmaking.Bff/Olsmaking.Bff.csproj --configuration Release --output "${{ runner.temp }}/bff-publish"
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure web app settings
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
+            --name "${{ vars.WEBAPP_NAME }}" \
+            --settings \
+              "ASPNETCORE_ENVIRONMENT=Production" \
+              "ASPNETCORE_FORWARDEDHEADERS_ENABLED=true" \
+              "ConnectionStrings__DefaultConnection=${{ secrets.SQL_CONNECTION_STRING }}" \
+              "Auth0__Domain=${{ secrets.AUTH0_DOMAIN }}" \
+              "Auth0__ClientId=${{ secrets.AUTH0_CLIENT_ID }}" \
+              "Auth0__ClientSecret=${{ secrets.AUTH0_CLIENT_SECRET }}" \
+              "Auth0__Audience=${{ secrets.AUTH0_AUDIENCE }}"
+
+      - name: Deploy web app package
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.WEBAPP_NAME }}
+          package: ${{ runner.temp }}/bff-publish
+
+      - name: Smoke check health endpoint
+        run: |
+          for attempt in {1..10}; do
+            if curl --fail --silent --show-error "https://${{ vars.WEBAPP_NAME }}.azurewebsites.net/api/health"; then
+              exit 0
+            fi
+
+            echo "Health check attempt ${attempt} failed. Retrying in 10s."
+            sleep 10
+          done
+
+          echo "Health endpoint did not return success after retries."
+          exit 1
 
   deploy-skipped:
     runs-on: ubuntu-latest

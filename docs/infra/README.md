@@ -12,3 +12,8 @@ Guidelines:
 2. Record environment differences explicitly (dev/test/prod).
 3. Include validation steps (`bicep build`, `what-if`, deploy verification).
 4. Note rollback guidance for production-impacting changes.
+
+Current workflow files:
+
+1. `.github/workflows/infra-provision.yml` for manual infra `what-if` and optional apply.
+2. `.github/workflows/deploy-appservice.yml` for gated app deployment (`INFRA_READY=true`).
