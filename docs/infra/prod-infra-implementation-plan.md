@@ -1,7 +1,36 @@
 # Prod Infra Implementation Plan
 
 ## Goal
-Implement Azure infrastructure and deployment automation for a single `prod` environment before further app feature work.
+Prepare Azure infrastructure and deployment automation for a single `prod` environment, to be activated after application v1 is considered ready.
+
+## Current Decision
+- Infra rollout is intentionally deferred until v1 product scope is stable.
+- No Azure provisioning or deployment runs should be executed during active v1 feature iteration.
+- Keep infrastructure code and workflows in place so activation later is low-friction.
+
+## Post-v1 Activation Plan
+
+### Activation trigger
+- Product owner confirms v1 feature set is complete enough for hosted validation.
+
+### Activation checklist (future)
+1. Confirm GitHub Environment `prod` secrets and vars are complete and current.
+2. Run local dry checks:
+   - `az bicep build --file infra/main.bicep`
+   - `az bicep build-params --file infra/params/prod.bicepparam`
+   - `dotnet publish src/Olsmaking.Bff/Olsmaking.Bff.csproj --configuration Release`
+3. Run hosted `infra-provision` workflow with `apply_changes=false` (what-if only).
+4. Review `what-if` output and resolve any naming/permission/policy issues.
+5. Run hosted `infra-provision` workflow with `apply_changes=true`.
+6. Keep `INFRA_READY=false` until infra validation is complete.
+7. Set `INFRA_READY=true` and run `deploy-appservice` manually.
+8. Validate `/api/health`, Auth0 login flow, and one DB-backed endpoint.
+9. If issues occur, set `INFRA_READY=false` and execute rollback steps.
+
+### Deferred-until-activation items
+- No manual Azure CLI deploy commands.
+- No workflow runs that apply infrastructure.
+- No app deployments to Azure.
 
 ## Scope
 
