@@ -12,7 +12,6 @@ Align primary navigation with device expectations by using a fixed, centered bot
 
 ### Out of Scope
 - Adding or removing tabs from primary navigation.
-- Implementing the disabled "Smakinger" section.
 - Route-level refactoring of tab state management.
 
 ## UI / Behavior Notes
@@ -31,7 +30,6 @@ Align primary navigation with device expectations by using a fixed, centered bot
 
 ## Open Questions
 - Route-based navigation follow-up is tracked in `docs/dev/spa-routing-foundation.md` and `docs/adr/ADR-007-spa-tab-routing-and-deep-link-support.md`.
-- Should the disabled "Smakinger" tab remain visible in desktop navigation or be hidden until available?
 
 ## Validation Plan
 - Frontend: `npm run typecheck`, `npm run lint`, `npm test -- --runInBand`, `npm run build`

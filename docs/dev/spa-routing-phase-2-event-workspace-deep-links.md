@@ -2,7 +2,7 @@
 
 ## Implementation Status
 - In progress
-- Current implementation target: path-based deep links on overview (`/oversikt/<eventId>`)
+- Current implementation target: path-based deep links on arrangementer (`/arrangementer/<eventId>`)
 
 ## Purpose
 Plan deep-link support that opens a specific event workspace directly from external links while preserving Phase 1 primary-tab routing behavior.
@@ -22,9 +22,9 @@ Plan deep-link support that opens a specific event workspace directly from exter
 
 ## UI / Behavior Notes
 - Entry points include external links and manual URL entry.
-- Primary route remains URL-driven from Phase 1 (`/oversikt`, `/arrangement`, `/favoritter`, `/profil`).
-- Phase 2 deep-link target should open overview context with event workspace loaded for the specified `eventId`.
-- Chosen shape in this phase: `/oversikt/<eventId>`.
+- Primary route remains URL-driven from Phase 1 (`/oversikt`, `/arrangementer`, `/favoritter`, `/profil`).
+- Phase 2 deep-link target should open single event context for the specified `eventId`.
+- Chosen shape in this phase: `/arrangementer/<eventId>`.
 - On valid access, workspace loads with existing event details/beer/review hydration behavior.
 - On not found or forbidden, user sees dedicated deep-link error messaging and remains in overview context.
 - On unauthenticated state, login flow should preserve return URL and return user to the deep link.
@@ -41,8 +41,8 @@ Plan deep-link support that opens a specific event workspace directly from exter
 - Event identifier validation is currently backend-driven; client does not enforce strict GUID format in this phase.
 
 ## Acceptance Criteria
-- Direct-open of `/oversikt/<eventId>` hydrates the event workspace when access is valid.
-- Selecting or opening an event workspace from UI updates URL to `/oversikt/<eventId>`.
+- Direct-open of `/arrangementer/<eventId>` hydrates the event workspace when access is valid.
+- Selecting or opening an event workspace from UI updates URL to `/arrangementer/<eventId>`.
 - Forbidden deep links show explicit access error text.
 - Unauthenticated deep links preserve `returnUrl` through login redirect.
 - Existing primary tab routing behavior from Phase 1 continues to work unchanged.
@@ -56,7 +56,7 @@ Plan deep-link support that opens a specific event workspace directly from exter
 - Frontend: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`
 - Backend: `dotnet build src/Olsmaking.Bff/Olsmaking.Bff.csproj`
 - Integration:
-  - Direct-open `/oversikt/<guid>` in integrated host and verify workspace hydration
+  - Direct-open `/arrangementer/<guid>` in integrated host and verify workspace hydration
   - Refresh on deep-link URL and verify consistent state
   - Verify forbidden/not-found event links show expected error handling
 

@@ -14,9 +14,9 @@ The app is hosted as a single deployable unit (.NET BFF + React SPA). The backen
 Adopt URL-driven client-side routing for primary tab navigation.
 
 Decision details:
-- Represent primary tabs with explicit client routes: `/oversikt`, `/arrangement`, `/favoritter`, `/profil`.
+- Represent primary tabs with explicit client routes: `/oversikt`, `/arrangementer`, `/favoritter`, `/profil`.
 - Treat URL pathname as the source of truth for active primary tab.
-- For event workspace deep links, use path-based route shape: `/oversikt/<eventId>`.
+- For event workspace deep links, use path-based route shape: `/arrangementer/<eventId>`.
 - Treat `eventId` as a route parameter for deep-link hydration; invalid, forbidden, and not-found handling remains unchanged.
 - Preserve existing backend route boundaries (`/api`, auth callback paths) and do not route those through client navigation.
 - Keep existing BFF SPA fallback behavior so direct open/refresh on client routes resolves correctly.

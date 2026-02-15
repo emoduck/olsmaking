@@ -68,12 +68,12 @@ Provide a concrete, implementation-ready task list for the Olsmaking MVP based o
 32. Document local setup for Auth0 + LocalDB in dev docs.
 
 ### Phase 7: Routing Follow-Up (Post-MVP)
-33. [Done] Implement Phase 1 URL-driven tab routing for `/oversikt`, `/arrangement`, `/favoritter`, and `/profil`.
+33. [Done] Implement Phase 1 URL-driven tab routing for `/oversikt`, `/arrangementer`, `/favoritter`, and `/profil`.
 34. [Done] Add route-to-tab initialization so direct open on `/oversikt` and other primary routes lands on correct view.
 35. [Done] Replace direct `setActiveTab` transitions with a shared navigation helper that updates both UI state and browser history.
 36. [Done] Add browser back/forward support (`popstate`) to keep rendered tab in sync with URL history.
 37. [Done] Add frontend tests for deep-link boot and history navigation across primary tab routes.
-38. [In progress] Implement Phase 2 event workspace deep-link handling using `/oversikt/<eventId>`.
+38. [In progress] Implement Phase 2 event workspace deep-link handling using `/arrangementer/<eventId>`.
 39. [In progress] Add deep-link error handling for forbidden and not-found event using existing error feedback patterns.
 40. [In progress] Add integration checks for deep-link refresh and login return-url behavior to ensure post-auth return lands on the requested deep link.
 41. [In progress] Validate path-based deep-link routing with frontend and host build matrix and update docs/dev + ADR-007 references to mark routing phases complete.

@@ -219,7 +219,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     expect(await screen.findByText('Min smaking')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: 'Åpne' }))
@@ -242,8 +242,8 @@ describe('App core flows', () => {
     expect(window.location.pathname).toBe('/oversikt')
   })
 
-  it('hydrates workspace when app boots on /oversikt/<id>', async () => {
-    window.history.pushState({}, '', '/oversikt/event-1')
+  it('hydrates workspace when app boots on /arrangementer/<id>', async () => {
+    window.history.pushState({}, '', '/arrangementer/event-1')
 
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },
@@ -262,6 +262,34 @@ describe('App core flows', () => {
     render(<App />)
 
     expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
+  })
+
+  it('shows back button in single-event mode and returns to arrangement list', async () => {
+    window.history.pushState({}, '', '/arrangementer/event-1')
+
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    expect(await screen.findByRole('button', { name: 'Tilbake til arrangementer' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Vis' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tilbake til arrangementer' }))
+
+    expect(window.location.pathname).toBe('/arrangementer')
+    expect(await screen.findByRole('heading', { name: 'Arrangementer' })).toBeInTheDocument()
   })
 
   it('renders plain overview when app boots on /oversikt?eventId=<id>', async () => {
@@ -283,7 +311,7 @@ describe('App core flows', () => {
   })
 
   it('shows dedicated error when deep-linked event is forbidden', async () => {
-    window.history.pushState({}, '', '/oversikt/event-1')
+    window.history.pushState({}, '', '/arrangementer/event-1')
 
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },
@@ -301,7 +329,7 @@ describe('App core flows', () => {
   })
 
   it('keeps deep-link returnUrl for unauthenticated users', async () => {
-    window.history.pushState({}, '', '/oversikt/event-1')
+    window.history.pushState({}, '', '/arrangementer/event-1')
 
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse({ title: 'Unauthorized' }, 401) },
@@ -313,7 +341,7 @@ describe('App core flows', () => {
     render(<App />)
 
     const loginLink = await screen.findByRole('link', { name: 'Logg inn' })
-    expect(loginLink).toHaveAttribute('href', '/api/auth/login?returnUrl=%2Foversikt%2Fevent-1')
+    expect(loginLink).toHaveAttribute('href', '/api/auth/login?returnUrl=%2Farrangementer%2Fevent-1')
   })
 
   it('updates URL on tab click and syncs tab from popstate', async () => {
@@ -326,7 +354,8 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    await screen.findByRole('heading', { name: 'Opprett arrangement' })
+    await screen.findByRole('heading', { name: 'Oversikt' })
+    expect(screen.queryByRole('button', { name: 'Smakinger' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Oversikt' }))
     expect(window.location.pathname).toBe('/oversikt')
@@ -448,7 +477,7 @@ describe('App core flows', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Åpne event' }))
 
-    expect(window.location.pathname).toBe('/oversikt/event-1')
+    expect(window.location.pathname).toBe('/arrangementer/event-1')
     expect(window.location.search).toBe('')
 
     await waitFor(() => {
@@ -482,14 +511,14 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Arrangement' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.change(screen.getByLabelText('Arrangement-ID'), { target: { value: 'event-1' } })
     fireEvent.change(screen.getByLabelText('Bli-med-kode'), { target: { value: 'ABCD1234' } })
     fireEvent.click(screen.getByRole('button', { name: 'Bli med' }))
 
     expect(await screen.findByText('Du ble med i arrangementet.')).toBeInTheDocument()
     expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
-    expect(window.location.pathname).toBe('/oversikt/event-1')
+    expect(window.location.pathname).toBe('/arrangementer/event-1')
     expect(window.location.search).toBe('')
   })
 
@@ -510,7 +539,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
     expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
@@ -531,7 +560,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
     expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
@@ -567,11 +596,11 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/oversikt/event-1')
+      expect(window.location.pathname).toBe('/arrangementer/event-1')
       expect(window.location.search).toBe('')
     })
 
@@ -628,7 +657,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Lukk arrangement' }))
 
@@ -659,7 +688,7 @@ describe('App core flows', () => {
 
     const confirmMock = vi.fn(() => true)
     vi.stubGlobal('confirm', confirmMock)
-    window.history.pushState({}, '', '/oversikt/event-1')
+    window.history.pushState({}, '', '/arrangementer/event-1')
 
     render(<App />)
 
@@ -672,7 +701,7 @@ describe('App core flows', () => {
 
     expect(confirmMock).toHaveBeenCalledTimes(1)
     expect(await screen.findByText('Arrangementet er slettet.')).toBeInTheDocument()
-    expect(window.location.pathname).toBe('/oversikt')
+    expect(window.location.pathname).toBe('/arrangementer')
     expect(window.location.search).toBe('')
     await waitFor(() => {
       expect(screen.queryByText('Bli-med-kode: ABCD1234')).not.toBeInTheDocument()
@@ -700,7 +729,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Slett arrangement' }))
 
@@ -748,7 +777,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Fjern' }))
 
@@ -805,7 +834,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
     fireEvent.click(await screen.findByRole('radio', { name: 'Farge 5 av 6' }))
@@ -876,7 +905,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
     expect(await screen.findByRole('button', { name: /Pale Ale[\s\S]*Skjul vurdering/i })).toBeInTheDocument()
@@ -934,7 +963,7 @@ describe('App core flows', () => {
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
     expect(screen.queryByLabelText('Navn på øl')).not.toBeInTheDocument()

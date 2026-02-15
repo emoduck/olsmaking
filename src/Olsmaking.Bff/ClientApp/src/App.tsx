@@ -30,16 +30,16 @@ import {
   type EventSummary,
   type FavoriteBeerSummary,
 } from './api/client'
-import { StarScoreSlider } from './components'
+import { EventListPanel, StarScoreSlider } from './components'
+import type { OverviewFilter } from './components'
 import styles from './App.module.css'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
 type PrimaryTab = 'oversikt' | 'arrangement' | 'favoritter' | 'profil'
-type OverviewFilter = 'mine' | 'open'
 
 const TAB_ROUTES: Record<PrimaryTab, string> = {
   oversikt: '/oversikt',
-  arrangement: '/arrangement',
+  arrangement: '/arrangementer',
   favoritter: '/favoritter',
   profil: '/profil',
 }
@@ -52,16 +52,16 @@ function normalizePath(pathname: string): string {
   return pathname
 }
 
-function getOverviewEventIdFromPath(pathname: string): string {
+function getArrangementEventIdFromPath(pathname: string): string {
   const normalizedPath = normalizePath(pathname)
 
-  if (!normalizedPath.startsWith('/oversikt/')) {
+  if (!normalizedPath.startsWith('/arrangementer/')) {
     return ''
   }
 
   const segments = normalizedPath.split('/').filter(Boolean)
 
-  if (segments.length !== 2 || segments[0] !== 'oversikt') {
+  if (segments.length !== 2 || segments[0] !== 'arrangementer') {
     return ''
   }
 
@@ -71,7 +71,7 @@ function getOverviewEventIdFromPath(pathname: string): string {
 function buildTabUrl(tab: PrimaryTab, options?: { eventId?: string }): string {
   const path = TAB_ROUTES[tab]
 
-  if (tab !== 'oversikt') {
+  if (tab !== 'arrangement') {
     return path
   }
 
@@ -87,20 +87,25 @@ function buildTabUrl(tab: PrimaryTab, options?: { eventId?: string }): string {
 function getPrimaryTabFromPath(pathname: string): PrimaryTab {
   const normalizedPath = normalizePath(pathname)
 
-  if (normalizedPath === '/oversikt' || normalizedPath.startsWith('/oversikt/')) {
-    return 'oversikt'
+  if (
+    normalizedPath === '/arrangement' ||
+    normalizedPath === '/arrangementer' ||
+    normalizedPath.startsWith('/arrangementer/')
+  ) {
+    return 'arrangement'
   }
 
   switch (normalizedPath) {
+    case '/oversikt':
+      return 'oversikt'
     case '/favoritter':
       return 'favoritter'
     case '/profil':
       return 'profil'
     case '/':
-    case '/arrangement':
-      return 'arrangement'
+      return 'oversikt'
     default:
-      return 'arrangement'
+      return 'oversikt'
   }
 }
 
@@ -219,8 +224,8 @@ function App() {
   const [joinCode, setJoinCode] = useState(queryValues.joinCode)
 
   const selectedBeer = beerList.find((item) => item.id === selectedBeerId) ?? null
-  const overviewEventId = getOverviewEventIdFromPath(currentPath)
-  const isOverviewEventRoute = activeTab === 'oversikt' && overviewEventId.length > 0
+  const arrangementEventId = getArrangementEventIdFromPath(currentPath)
+  const isArrangementEventRoute = activeTab === 'arrangement' && arrangementEventId.length > 0
   const selectedEventId = selectedEvent?.id ?? ''
   const selectedBeerReviewId = selectedBeer?.id ?? ''
   const favoriteBeerIdSet = useMemo(() => new Set(favoriteBeerIds), [favoriteBeerIds])
@@ -273,13 +278,13 @@ function App() {
     }
 
     const initialTab = getPrimaryTabFromPath(window.location.pathname)
-    const initialEventId = getOverviewEventIdFromPath(window.location.pathname)
+    const initialEventId = getArrangementEventIdFromPath(window.location.pathname)
     let canonicalUrl: string
 
-    if (initialTab === 'oversikt') {
-      canonicalUrl = buildTabUrl('oversikt', { eventId: initialEventId })
-    } else if (initialTab === 'arrangement') {
-      canonicalUrl = `${TAB_ROUTES.arrangement}${window.location.search}`
+    if (initialTab === 'arrangement') {
+      canonicalUrl = buildTabUrl('arrangement', { eventId: initialEventId })
+    } else if (initialTab === 'oversikt') {
+      canonicalUrl = TAB_ROUTES.oversikt
     } else {
       canonicalUrl = TAB_ROUTES[initialTab]
     }
@@ -306,7 +311,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (authState !== 'authenticated' || activeTab !== 'oversikt') {
+    if (authState !== 'authenticated' || activeTab !== 'arrangement') {
       return
     }
 
@@ -314,7 +319,7 @@ function App() {
       return
     }
 
-    const deepLinkEventId = getOverviewEventIdFromPath(currentPath)
+    const deepLinkEventId = getArrangementEventIdFromPath(currentPath)
 
     if (!deepLinkEventId || deepLinkEventId === selectedEventId) {
       return
@@ -356,7 +361,7 @@ function App() {
   }, [activeTab, authState, currentPath, selectedEventId])
 
   useEffect(() => {
-    if (activeTab !== 'oversikt' || overviewEventId) {
+    if (isArrangementEventRoute) {
       return
     }
 
@@ -365,7 +370,7 @@ function App() {
     setFavoriteBeerIds([])
     setFavoritePendingBeerIds([])
     setSelectedBeerId('')
-  }, [activeTab, overviewEventId])
+  }, [isArrangementEventRoute])
 
   useEffect(() => {
     let isActive = true
@@ -614,7 +619,7 @@ function App() {
       setMyEventList((previous) => previous.filter((item) => item.id !== eventId))
       setOpenEventList((previous) => previous.filter((item) => item.id !== eventId))
       setFavoriteList((previous) => previous.filter((favorite) => favorite.eventId !== eventId))
-      navigateToTab('oversikt', { replace: true })
+      navigateToTab('arrangement', { replace: true })
       setFeedbackMessage('Arrangementet er slettet.')
     } catch (error) {
       setErrorMessage(getApiMessage(error))
@@ -757,10 +762,7 @@ function App() {
             navigateToTab('arrangement')
           }}
         >
-          Arrangement
-        </button>
-        <button type="button" className={styles.navItemDisabled} disabled>
-          Smakinger
+          Arrangementer
         </button>
         <button
           type="button"
@@ -798,7 +800,7 @@ function App() {
     try {
       const created = await createEvent(createName.trim())
       setCreateName('')
-      navigateToTab('oversikt', { eventId: created.id })
+      navigateToTab('arrangement', { eventId: created.id })
       setFeedbackMessage('Arrangementet er opprettet.')
       await loadEventWorkspace(created.id)
     } catch (error) {
@@ -822,7 +824,7 @@ function App() {
     try {
       const result = await joinEvent(joinEventId.trim(), joinCode.trim())
       await loadEventWorkspace(result.eventId)
-      navigateToTab('oversikt', { eventId: result.eventId })
+      navigateToTab('arrangement', { eventId: result.eventId })
       setFeedbackMessage(result.joined ? 'Du ble med i arrangementet.' : 'Du er allerede med i arrangementet.')
     } catch (error) {
       setErrorMessage(getApiMessage(error))
@@ -837,7 +839,7 @@ function App() {
 
     try {
       await loadEventWorkspace(eventId)
-      navigateToTab('oversikt', { eventId })
+      navigateToTab('arrangement', { eventId })
     } catch (error) {
       setErrorMessage(getApiMessage(error))
     }
@@ -846,7 +848,7 @@ function App() {
   async function handleOpenFavoriteWorkspace(eventId: string) {
     setFeedbackMessage(null)
     setErrorMessage(null)
-    navigateToTab('oversikt', { eventId })
+    navigateToTab('arrangement', { eventId })
 
     try {
       await loadEventWorkspace(eventId)
@@ -981,6 +983,343 @@ function App() {
     }
   }
 
+  function renderArrangementWorkspace() {
+    if (workspacePending) {
+      return (
+        <section className={styles.panel}>
+          <p className={styles.muted}>Laster arbeidsflate...</p>
+        </section>
+      )
+    }
+
+    if (!selectedEvent) {
+      return null
+    }
+
+    return (
+      <>
+        <section className={styles.panel}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Arrangement</h2>
+            <button
+              type="button"
+              className={styles.buttonSecondary}
+              onClick={() => {
+                navigateToTab('arrangement')
+              }}
+            >
+              Tilbake til arrangementer
+            </button>
+          </div>
+          <p className={styles.eventName}>{selectedEvent.name}</p>
+          <p className={styles.eventMeta}>Arrangement-ID: {selectedEvent.id}</p>
+          <p className={styles.eventMeta}>Bli-med-kode: {selectedEvent.joinCode}</p>
+          <p className={styles.eventMeta}>Status: {STATUS_LABELS[selectedEvent.status] ?? 'Ukjent'}</p>
+          <p className={styles.eventMeta}>Din rolle: {selectedEvent.currentUserRole}</p>
+          <p className={styles.eventMeta}>Deltakere: {selectedEvent.participants.length}</p>
+          {canManageEvent ? (
+            <div className={styles.workspaceActions}>
+              <button
+                type="button"
+                className={styles.buttonSecondary}
+                onClick={() => {
+                  void handleEventStatusChange(selectedEvent.status === 2 ? 'open' : 'closed')
+                }}
+                disabled={workspaceActionPending}
+              >
+                {selectedEvent.status === 2 ? 'Åpne arrangement' : 'Lukk arrangement'}
+              </button>
+              <button
+                type="button"
+                className={styles.buttonSecondary}
+                onClick={() => {
+                  void handleDeleteEvent()
+                }}
+                disabled={workspaceActionPending}
+              >
+                {deleteEventPending ? 'Sletter...' : 'Slett arrangement'}
+              </button>
+            </div>
+          ) : null}
+          <ul className={styles.participantList}>
+            {selectedEvent.participants.map((participant) => (
+              <li key={participant.userId} className={styles.participantRow}>
+                <div className={styles.participantBody}>
+                  <span>{participant.nickname ?? 'Ukjent bruker'}</span>
+                  <span className={styles.participantMeta}>
+                    {PARTICIPANT_STATUS_LABELS[participant.status] ?? `Status ${participant.status}`}
+                  </span>
+                </div>
+                {canManageEvent && participant.userId !== selectedEvent.ownerUserId ? (
+                  participant.status === 1 || participant.status === 2 ? (
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => {
+                        void handleParticipantAction(participant.userId, participant.status, participant.nickname)
+                      }}
+                      disabled={workspaceActionPending}
+                    >
+                      {participantActionPendingUserId === participant.userId
+                        ? 'Lagrer...'
+                        : participant.status === 2
+                          ? 'Gjenopprett'
+                          : 'Fjern'}
+                    </button>
+                  ) : null
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className={styles.panel}>
+          <h2 className={styles.sectionTitle}>Øl i arrangementet</h2>
+          {beerList.length ? (
+            <ul className={styles.beerList}>
+              {beerList.map((beer) => (
+                <li key={beer.id} className={beer.id === selectedBeerId ? styles.beerRowActive : styles.beerRow}>
+                  <div className={styles.beerRowHeader}>
+                    <button
+                      type="button"
+                      className={styles.beerAccordionTrigger}
+                      id={`beer-review-trigger-${beer.id}`}
+                      aria-expanded={beer.id === selectedBeerId}
+                      aria-controls={`beer-review-panel-${beer.id}`}
+                      onClick={() => {
+                        handleToggleBeerPanel(beer.id)
+                      }}
+                    >
+                      <span className={styles.beerRowBody}>
+                        <span className={styles.eventName}>{beer.name}</span>
+                        <span className={styles.eventMeta}>
+                          {[beer.brewery, beer.style, beer.abv !== null ? `${beer.abv}%` : null]
+                            .filter(Boolean)
+                            .join(' · ') || 'Ingen detaljer'}
+                        </span>
+                        {favoriteBeerIdSet.has(beer.id) ? <span className={styles.favoriteMeta}>Favoritt</span> : null}
+                      </span>
+                      <span className={styles.beerAccordionHint}>{beer.id === selectedBeerId ? 'Skjul vurdering' : 'Vis vurdering'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.favoriteButton}
+                      onClick={() => {
+                        void handleToggleFavorite(beer.id, beer.name)
+                      }}
+                      disabled={favoritePendingBeerIdSet.has(beer.id)}
+                      aria-label={favoriteBeerIdSet.has(beer.id) ? `Fjern favoritt for ${beer.name}` : `Lagre ${beer.name} som favoritt`}
+                      aria-pressed={favoriteBeerIdSet.has(beer.id)}
+                      aria-busy={favoritePendingBeerIdSet.has(beer.id)}
+                      title={favoriteBeerIdSet.has(beer.id) ? 'Markert som favoritt' : 'Ikke markert som favoritt'}
+                    >
+                      <svg className={styles.favoriteIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A5.96 5.96 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z" />
+                      </svg>
+                      {favoritePendingBeerIdSet.has(beer.id) ? <span className={styles.srOnly}>Lagrer...</span> : null}
+                    </button>
+                  </div>
+
+                  {beer.id === selectedBeerId ? (
+                    <div
+                      id={`beer-review-panel-${beer.id}`}
+                      className={styles.beerAccordionPanel}
+                      role="region"
+                      aria-labelledby={`beer-review-trigger-${beer.id}`}
+                    >
+                      <form className={styles.form} onSubmit={handleReviewSubmit}>
+                        <StarScoreSlider
+                          id="review-color-score"
+                          label="Farge"
+                          value={reviewColorScore}
+                          onChange={setReviewColorScore}
+                          disabled={reviewPending}
+                        />
+
+                        <StarScoreSlider
+                          id="review-smell-score"
+                          label="Lukt"
+                          value={reviewSmellScore}
+                          onChange={setReviewSmellScore}
+                          disabled={reviewPending}
+                        />
+
+                        <StarScoreSlider
+                          id="review-taste-score"
+                          label="Smak"
+                          value={reviewTasteScore}
+                          onChange={setReviewTasteScore}
+                          disabled={reviewPending}
+                        />
+
+                        <StarScoreSlider
+                          id="review-total-score"
+                          label="Total"
+                          value={reviewTotalScore}
+                          onChange={setReviewTotalScore}
+                          disabled={reviewPending}
+                        />
+
+                        <label className={styles.label} htmlFor="review-notes">
+                          Notater
+                        </label>
+                        <textarea
+                          id="review-notes"
+                          className={styles.textArea}
+                          value={reviewNotes}
+                          onChange={(event) => {
+                            setReviewNotes(event.target.value)
+                          }}
+                          maxLength={2000}
+                          placeholder="Kort smaksvurdering"
+                        />
+
+                        <label className={styles.label} htmlFor="review-aroma-notes">
+                          Aroma (valgfritt)
+                        </label>
+                        <textarea
+                          id="review-aroma-notes"
+                          className={styles.textArea}
+                          value={reviewAromaNotes}
+                          onChange={(event) => {
+                            setReviewAromaNotes(event.target.value)
+                          }}
+                          maxLength={2000}
+                          placeholder="Hva lukter du?"
+                        />
+
+                        <label className={styles.label} htmlFor="review-appearance-notes">
+                          Utseende (valgfritt)
+                        </label>
+                        <textarea
+                          id="review-appearance-notes"
+                          className={styles.textArea}
+                          value={reviewAppearanceNotes}
+                          onChange={(event) => {
+                            setReviewAppearanceNotes(event.target.value)
+                          }}
+                          maxLength={2000}
+                          placeholder="Skum, farge og klarhet"
+                        />
+
+                        <label className={styles.label} htmlFor="review-flavor-notes">
+                          Smak (valgfritt)
+                        </label>
+                        <textarea
+                          id="review-flavor-notes"
+                          className={styles.textArea}
+                          value={reviewFlavorNotes}
+                          onChange={(event) => {
+                            setReviewFlavorNotes(event.target.value)
+                          }}
+                          maxLength={2000}
+                          placeholder="Smaksnotater og avslutning"
+                        />
+
+                        <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
+                          {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
+                        </button>
+                      </form>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>Ingen øl registrert ennå.</p>
+          )}
+
+          <div className={styles.addBeerHeader}>
+            <p className={styles.label}>Legg til øl</p>
+            <button
+              type="button"
+              className={styles.addBeerToggle}
+              aria-expanded={isAddBeerFormOpen}
+              aria-controls="add-beer-form"
+              aria-label={isAddBeerFormOpen ? 'Skjul legg til øl' : 'Vis legg til øl'}
+              onClick={() => {
+                setIsAddBeerFormOpen((previous) => !previous)
+              }}
+            >
+              {isAddBeerFormOpen ? (
+                <svg className={styles.addBeerToggleIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M5 12H19" />
+                </svg>
+              ) : (
+                <svg className={styles.addBeerToggleIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M12 5V19M5 12H19" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {isAddBeerFormOpen ? (
+            <form id="add-beer-form" className={styles.form} onSubmit={handleAddBeer}>
+              <label className={styles.label} htmlFor="beer-name">
+                Navn på øl
+              </label>
+              <input
+                id="beer-name"
+                className={styles.input}
+                value={beerName}
+                onChange={(event) => {
+                  setBeerName(event.target.value)
+                }}
+                maxLength={200}
+                placeholder="For eksempel Session IPA"
+              />
+
+              <label className={styles.label} htmlFor="beer-brewery">
+                Bryggeri (valgfritt)
+              </label>
+              <input
+                id="beer-brewery"
+                className={styles.input}
+                value={beerBrewery}
+                onChange={(event) => {
+                  setBeerBrewery(event.target.value)
+                }}
+                maxLength={200}
+              />
+
+              <label className={styles.label} htmlFor="beer-style">
+                Stil (valgfritt)
+              </label>
+              <input
+                id="beer-style"
+                className={styles.input}
+                value={beerStyle}
+                onChange={(event) => {
+                  setBeerStyle(event.target.value)
+                }}
+                maxLength={100}
+              />
+
+              <label className={styles.label} htmlFor="beer-abv">
+                ABV (valgfritt)
+              </label>
+              <input
+                id="beer-abv"
+                className={styles.input}
+                value={beerAbv}
+                onChange={(event) => {
+                  setBeerAbv(event.target.value)
+                }}
+                inputMode="decimal"
+                placeholder="For eksempel 5.2"
+              />
+
+              <button type="submit" className={styles.buttonPrimary} disabled={addBeerPending}>
+                {addBeerPending ? 'Legger til...' : 'Legg til øl'}
+              </button>
+            </form>
+          ) : null}
+        </section>
+      </>
+    )
+  }
+
   if (authState === 'loading') {
     return (
       <main className={styles.appShell}>
@@ -1038,399 +1377,149 @@ function App() {
       {activeTab === 'oversikt' ? (
         <>
           <section className={styles.panel}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Arrangementer</h2>
-              <div className={styles.filterTabs} role="tablist" aria-label="Arrangementfilter">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={overviewFilter === 'mine'}
-                  className={overviewFilter === 'mine' ? styles.filterTabActive : styles.filterTab}
-                  onClick={() => {
-                    setOverviewFilter('mine')
-                  }}
-                >
-                  Mine
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={overviewFilter === 'open'}
-                  className={overviewFilter === 'open' ? styles.filterTabActive : styles.filterTab}
-                  onClick={() => {
-                    setOverviewFilter('open')
-                  }}
-                >
-                  Åpne
-                </button>
-              </div>
+            <h2 className={styles.sectionTitle}>Oversikt</h2>
+            <p className={styles.muted}>Du har {myEventList.length} egne arrangementer og {favoriteList.length} favoritter.</p>
+            <div className={styles.workspaceActions}>
+              <button
+                type="button"
+                className={styles.buttonSecondary}
+                onClick={() => {
+                  navigateToTab('arrangement')
+                }}
+              >
+                Se arrangementer
+              </button>
+              <button
+                type="button"
+                className={styles.buttonSecondary}
+                onClick={() => {
+                  navigateToTab('favoritter')
+                }}
+              >
+                Se favoritter
+              </button>
             </div>
-
-            {overviewList.length ? (
-              <ul className={styles.eventList}>
-                {overviewList.map((eventItem) => (
-                  <li key={eventItem.id} className={styles.eventRow}>
-                    <div>
-                      <p className={styles.eventName}>{eventItem.name}</p>
-                      <p className={styles.eventMeta}>
-                        {STATUS_LABELS[eventItem.status] ?? 'Ukjent'} · {eventItem.id}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className={styles.buttonSecondary}
-                      onClick={() => {
-                        void handleSelectEvent(eventItem.id)
-                      }}
-                    >
-                      Vis
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.muted}>
-                {overviewFilter === 'mine'
-                  ? 'Ingen arrangementer ennå. Opprett et nytt for å starte.'
-                  : 'Ingen åpne arrangementer akkurat nå.'}
-              </p>
-            )}
           </section>
 
-          {isOverviewEventRoute && workspacePending ? (
-            <section className={styles.panel}>
-              <p className={styles.muted}>Laster arbeidsflate...</p>
-            </section>
-          ) : null}
-
-          {isOverviewEventRoute && selectedEvent ? (
-            <>
-              <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>Arrangement</h2>
-                <p className={styles.eventName}>{selectedEvent.name}</p>
-                <p className={styles.eventMeta}>Arrangement-ID: {selectedEvent.id}</p>
-                <p className={styles.eventMeta}>Bli-med-kode: {selectedEvent.joinCode}</p>
-                <p className={styles.eventMeta}>Status: {STATUS_LABELS[selectedEvent.status] ?? 'Ukjent'}</p>
-                <p className={styles.eventMeta}>Din rolle: {selectedEvent.currentUserRole}</p>
-                <p className={styles.eventMeta}>Deltakere: {selectedEvent.participants.length}</p>
-                {canManageEvent ? (
-                  <div className={styles.workspaceActions}>
-                    <button
-                      type="button"
-                      className={styles.buttonSecondary}
-                      onClick={() => {
-                        void handleEventStatusChange(selectedEvent.status === 2 ? 'open' : 'closed')
-                      }}
-                      disabled={workspaceActionPending}
-                    >
-                      {selectedEvent.status === 2 ? 'Åpne arrangement' : 'Lukk arrangement'}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.buttonSecondary}
-                      onClick={() => {
-                        void handleDeleteEvent()
-                      }}
-                      disabled={workspaceActionPending}
-                    >
-                      {deleteEventPending ? 'Sletter...' : 'Slett arrangement'}
-                    </button>
-                  </div>
-                ) : null}
-                <ul className={styles.participantList}>
-                  {selectedEvent.participants.map((participant) => (
-                    <li key={participant.userId} className={styles.participantRow}>
-                      <div className={styles.participantBody}>
-                        <span>{participant.nickname ?? 'Ukjent bruker'}</span>
-                        <span className={styles.participantMeta}>
-                          {PARTICIPANT_STATUS_LABELS[participant.status] ?? `Status ${participant.status}`}
-                        </span>
-                      </div>
-                      {canManageEvent && participant.userId !== selectedEvent.ownerUserId ? (
-                        participant.status === 1 || participant.status === 2 ? (
-                          <button
-                            type="button"
-                            className={styles.buttonSecondary}
-                            onClick={() => {
-                              void handleParticipantAction(participant.userId, participant.status, participant.nickname)
-                            }}
-                            disabled={workspaceActionPending}
-                          >
-                            {participantActionPendingUserId === participant.userId
-                              ? 'Lagrer...'
-                              : participant.status === 2
-                                ? 'Gjenopprett'
-                                : 'Fjern'}
-                          </button>
-                        ) : null
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>Øl i arrangementet</h2>
-                {beerList.length ? (
-                  <ul className={styles.beerList}>
-                    {beerList.map((beer) => (
-                      <li key={beer.id} className={beer.id === selectedBeerId ? styles.beerRowActive : styles.beerRow}>
-                        <div className={styles.beerRowHeader}>
-                          <button
-                            type="button"
-                            className={styles.beerAccordionTrigger}
-                            id={`beer-review-trigger-${beer.id}`}
-                            aria-expanded={beer.id === selectedBeerId}
-                            aria-controls={`beer-review-panel-${beer.id}`}
-                            onClick={() => {
-                              handleToggleBeerPanel(beer.id)
-                            }}
-                          >
-                            <span className={styles.beerRowBody}>
-                              <span className={styles.eventName}>{beer.name}</span>
-                              <span className={styles.eventMeta}>
-                                {[beer.brewery, beer.style, beer.abv !== null ? `${beer.abv}%` : null]
-                                  .filter(Boolean)
-                                  .join(' · ') || 'Ingen detaljer'}
-                              </span>
-                              {favoriteBeerIdSet.has(beer.id) ? <span className={styles.favoriteMeta}>Favoritt</span> : null}
-                            </span>
-                            <span className={styles.beerAccordionHint}>
-                              {beer.id === selectedBeerId ? 'Skjul vurdering' : 'Vis vurdering'}
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            className={styles.favoriteButton}
-                            onClick={() => {
-                              void handleToggleFavorite(beer.id, beer.name)
-                            }}
-                            disabled={favoritePendingBeerIdSet.has(beer.id)}
-                            aria-label={
-                              favoriteBeerIdSet.has(beer.id)
-                                ? `Fjern favoritt for ${beer.name}`
-                                : `Lagre ${beer.name} som favoritt`
-                            }
-                            aria-pressed={favoriteBeerIdSet.has(beer.id)}
-                            aria-busy={favoritePendingBeerIdSet.has(beer.id)}
-                            title={
-                              favoriteBeerIdSet.has(beer.id)
-                                ? 'Markert som favoritt'
-                                : 'Ikke markert som favoritt'
-                            }
-                          >
-                            <svg
-                              className={styles.favoriteIcon}
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              focusable="false"
-                            >
-                              <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A5.96 5.96 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z" />
-                            </svg>
-                            {favoritePendingBeerIdSet.has(beer.id) ? <span className={styles.srOnly}>Lagrer...</span> : null}
-                          </button>
-                        </div>
-
-                        {beer.id === selectedBeerId ? (
-                          <div
-                            id={`beer-review-panel-${beer.id}`}
-                            className={styles.beerAccordionPanel}
-                            role="region"
-                            aria-labelledby={`beer-review-trigger-${beer.id}`}
-                          >
-                            <form className={styles.form} onSubmit={handleReviewSubmit}>
-                              <StarScoreSlider
-                                id="review-color-score"
-                                label="Farge"
-                                value={reviewColorScore}
-                                onChange={setReviewColorScore}
-                                disabled={reviewPending}
-                              />
-
-                              <StarScoreSlider
-                                id="review-smell-score"
-                                label="Lukt"
-                                value={reviewSmellScore}
-                                onChange={setReviewSmellScore}
-                                disabled={reviewPending}
-                              />
-
-                              <StarScoreSlider
-                                id="review-taste-score"
-                                label="Smak"
-                                value={reviewTasteScore}
-                                onChange={setReviewTasteScore}
-                                disabled={reviewPending}
-                              />
-
-                              <StarScoreSlider
-                                id="review-total-score"
-                                label="Total"
-                                value={reviewTotalScore}
-                                onChange={setReviewTotalScore}
-                                disabled={reviewPending}
-                              />
-
-                              <label className={styles.label} htmlFor="review-notes">
-                                Notater
-                              </label>
-                              <textarea
-                                id="review-notes"
-                                className={styles.textArea}
-                                value={reviewNotes}
-                                onChange={(event) => {
-                                  setReviewNotes(event.target.value)
-                                }}
-                                maxLength={2000}
-                                placeholder="Kort smaksvurdering"
-                              />
-
-                              <label className={styles.label} htmlFor="review-aroma-notes">
-                                Aroma (valgfritt)
-                              </label>
-                              <textarea
-                                id="review-aroma-notes"
-                                className={styles.textArea}
-                                value={reviewAromaNotes}
-                                onChange={(event) => {
-                                  setReviewAromaNotes(event.target.value)
-                                }}
-                                maxLength={2000}
-                                placeholder="Hva lukter du?"
-                              />
-
-                              <label className={styles.label} htmlFor="review-appearance-notes">
-                                Utseende (valgfritt)
-                              </label>
-                              <textarea
-                                id="review-appearance-notes"
-                                className={styles.textArea}
-                                value={reviewAppearanceNotes}
-                                onChange={(event) => {
-                                  setReviewAppearanceNotes(event.target.value)
-                                }}
-                                maxLength={2000}
-                                placeholder="Skum, farge og klarhet"
-                              />
-
-                              <label className={styles.label} htmlFor="review-flavor-notes">
-                                Smak (valgfritt)
-                              </label>
-                              <textarea
-                                id="review-flavor-notes"
-                                className={styles.textArea}
-                                value={reviewFlavorNotes}
-                                onChange={(event) => {
-                                  setReviewFlavorNotes(event.target.value)
-                                }}
-                                maxLength={2000}
-                                placeholder="Smaksnotater og avslutning"
-                              />
-
-                              <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
-                                {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
-                              </button>
-                            </form>
-                          </div>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={styles.muted}>Ingen øl registrert ennå.</p>
-                )}
-
-                <div className={styles.addBeerHeader}>
-                  <p className={styles.label}>Legg til øl</p>
-                  <button
-                    type="button"
-                    className={styles.addBeerToggle}
-                    aria-expanded={isAddBeerFormOpen}
-                    aria-controls="add-beer-form"
-                    aria-label={isAddBeerFormOpen ? 'Skjul legg til øl' : 'Vis legg til øl'}
-                    onClick={() => {
-                      setIsAddBeerFormOpen((previous) => !previous)
-                    }}
-                  >
-                    {isAddBeerFormOpen ? (
-                      <svg className={styles.addBeerToggleIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M5 12H19" />
-                      </svg>
-                    ) : (
-                      <svg className={styles.addBeerToggleIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M12 5V19M5 12H19" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-
-                {isAddBeerFormOpen ? (
-                  <form id="add-beer-form" className={styles.form} onSubmit={handleAddBeer}>
-                    <label className={styles.label} htmlFor="beer-name">
-                      Navn på øl
-                    </label>
-                    <input
-                      id="beer-name"
-                      className={styles.input}
-                      value={beerName}
-                      onChange={(event) => {
-                        setBeerName(event.target.value)
-                      }}
-                      maxLength={200}
-                      placeholder="For eksempel Session IPA"
-                    />
-
-                    <label className={styles.label} htmlFor="beer-brewery">
-                      Bryggeri (valgfritt)
-                    </label>
-                    <input
-                      id="beer-brewery"
-                      className={styles.input}
-                      value={beerBrewery}
-                      onChange={(event) => {
-                        setBeerBrewery(event.target.value)
-                      }}
-                      maxLength={200}
-                    />
-
-                    <label className={styles.label} htmlFor="beer-style">
-                      Stil (valgfritt)
-                    </label>
-                    <input
-                      id="beer-style"
-                      className={styles.input}
-                      value={beerStyle}
-                      onChange={(event) => {
-                        setBeerStyle(event.target.value)
-                      }}
-                      maxLength={100}
-                    />
-
-                    <label className={styles.label} htmlFor="beer-abv">
-                      ABV (valgfritt)
-                    </label>
-                    <input
-                      id="beer-abv"
-                      className={styles.input}
-                      value={beerAbv}
-                      onChange={(event) => {
-                        setBeerAbv(event.target.value)
-                      }}
-                      inputMode="decimal"
-                      placeholder="For eksempel 5.2"
-                    />
-
-                    <button type="submit" className={styles.buttonPrimary} disabled={addBeerPending}>
-                      {addBeerPending ? 'Legger til...' : 'Legg til øl'}
-                    </button>
-                  </form>
-                ) : null}
-              </section>
-
-            </>
-          ) : null}
+          <section className={styles.panel}>
+            <EventListPanel
+              title="Arrangementer"
+              filter={overviewFilter}
+              events={overviewList}
+              onFilterChange={setOverviewFilter}
+              onOpenEvent={(eventId) => {
+                void handleSelectEvent(eventId)
+              }}
+              getStatusLabel={(status) => STATUS_LABELS[status] ?? 'Ukjent'}
+              emptyMineText="Ingen arrangementer ennå. Gå til Arrangementer for å opprette et nytt."
+              emptyOpenText="Ingen åpne arrangementer akkurat nå."
+              classes={{
+                sectionHeader: styles.sectionHeader,
+                sectionTitle: styles.sectionTitle,
+                filterTabs: styles.filterTabs,
+                filterTab: styles.filterTab,
+                filterTabActive: styles.filterTabActive,
+                eventList: styles.eventList,
+                eventRow: styles.eventRow,
+                eventName: styles.eventName,
+                eventMeta: styles.eventMeta,
+                buttonSecondary: styles.buttonSecondary,
+                muted: styles.muted,
+              }}
+            />
+          </section>
         </>
+      ) : activeTab === 'arrangement' ? (
+        isArrangementEventRoute ? (
+          renderArrangementWorkspace()
+        ) : (
+          <>
+            <section className={styles.panel}>
+              <EventListPanel
+                title="Arrangementer"
+                filter={overviewFilter}
+                events={overviewList}
+                onFilterChange={setOverviewFilter}
+                onOpenEvent={(eventId) => {
+                  void handleSelectEvent(eventId)
+                }}
+                getStatusLabel={(status) => STATUS_LABELS[status] ?? 'Ukjent'}
+                emptyMineText="Ingen arrangementer ennå. Opprett et nytt for å starte."
+                emptyOpenText="Ingen åpne arrangementer akkurat nå."
+                classes={{
+                  sectionHeader: styles.sectionHeader,
+                  sectionTitle: styles.sectionTitle,
+                  filterTabs: styles.filterTabs,
+                  filterTab: styles.filterTab,
+                  filterTabActive: styles.filterTabActive,
+                  eventList: styles.eventList,
+                  eventRow: styles.eventRow,
+                  eventName: styles.eventName,
+                  eventMeta: styles.eventMeta,
+                  buttonSecondary: styles.buttonSecondary,
+                  muted: styles.muted,
+                }}
+              />
+            </section>
+
+            <section className={styles.panel}>
+              <h2 className={styles.sectionTitle}>Opprett arrangement</h2>
+              <form className={styles.form} onSubmit={handleCreate}>
+                <label className={styles.label} htmlFor="event-name">
+                  Navn på arrangement
+                </label>
+                <input
+                  id="event-name"
+                  className={styles.input}
+                  value={createName}
+                  onChange={(event) => {
+                    setCreateName(event.target.value)
+                  }}
+                  placeholder="For eksempel Fredagssmaking"
+                  maxLength={200}
+                />
+                <button type="submit" className={styles.buttonPrimary} disabled={createPending}>
+                  {createPending ? 'Oppretter...' : 'Opprett'}
+                </button>
+              </form>
+            </section>
+
+            <section className={styles.panel}>
+              <h2 className={styles.sectionTitle}>Bli med i arrangement</h2>
+              <form className={styles.form} onSubmit={handleJoin}>
+                <label className={styles.label} htmlFor="join-event-id">
+                  Arrangement-ID
+                </label>
+                <input
+                  id="join-event-id"
+                  className={styles.input}
+                  value={joinEventId}
+                  onChange={(event) => {
+                    setJoinEventId(event.target.value)
+                  }}
+                  placeholder="GUID fra invitasjon"
+                />
+
+                <label className={styles.label} htmlFor="join-code">
+                  Bli-med-kode
+                </label>
+                <input
+                  id="join-code"
+                  className={styles.input}
+                  value={joinCode}
+                  onChange={(event) => {
+                    setJoinCode(event.target.value)
+                  }}
+                  placeholder="Eksempel ABCD1234"
+                />
+
+                <button type="submit" className={styles.buttonPrimary} disabled={joinPending}>
+                  {joinPending ? 'Bli med...' : 'Bli med'}
+                </button>
+              </form>
+            </section>
+          </>
+        )
       ) : activeTab === 'favoritter' ? (
         <section className={styles.panel}>
           <h2 className={styles.sectionTitle}>Favoritter</h2>
@@ -1501,70 +1590,10 @@ function App() {
             </button>
           </form>
         </section>
-      ) : (
-        <>
-          <section className={styles.panel}>
-            <h2 className={styles.sectionTitle}>Opprett arrangement</h2>
-            <form className={styles.form} onSubmit={handleCreate}>
-              <label className={styles.label} htmlFor="event-name">
-                Navn på arrangement
-              </label>
-              <input
-                id="event-name"
-                className={styles.input}
-                value={createName}
-                onChange={(event) => {
-                  setCreateName(event.target.value)
-                }}
-                placeholder="For eksempel Fredagssmaking"
-                maxLength={200}
-              />
-              <button type="submit" className={styles.buttonPrimary} disabled={createPending}>
-                {createPending ? 'Oppretter...' : 'Opprett'}
-              </button>
-            </form>
-          </section>
-
-          <section className={styles.panel}>
-            <h2 className={styles.sectionTitle}>Bli med i arrangement</h2>
-            <form className={styles.form} onSubmit={handleJoin}>
-              <label className={styles.label} htmlFor="join-event-id">
-                Arrangement-ID
-              </label>
-              <input
-                id="join-event-id"
-                className={styles.input}
-                value={joinEventId}
-                onChange={(event) => {
-                  setJoinEventId(event.target.value)
-                }}
-                placeholder="GUID fra invitasjon"
-              />
-
-              <label className={styles.label} htmlFor="join-code">
-                Bli-med-kode
-              </label>
-              <input
-                id="join-code"
-                className={styles.input}
-                value={joinCode}
-                onChange={(event) => {
-                  setJoinCode(event.target.value)
-                }}
-                placeholder="Eksempel ABCD1234"
-              />
-
-              <button type="submit" className={styles.buttonPrimary} disabled={joinPending}>
-                {joinPending ? 'Bli med...' : 'Bli med'}
-              </button>
-            </form>
-          </section>
-        </>
-      )}
+      ) : null}
 
       {!isLargeScreen ? <nav className={styles.bottomNav} aria-label="Hovednavigasjon">{renderPrimaryNavItems()}</nav> : null}
 
-      {!isLargeScreen ? <p className={styles.navHint}>Smakinger kommer snart.</p> : null}
       {!isLargeScreen ? <div className={styles.navSpacer} /> : null}
     </main>
   )
