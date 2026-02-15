@@ -32,6 +32,7 @@ import {
 } from './api/client'
 import { EventListPanel, StarScoreSlider } from './components'
 import type { OverviewFilter } from './components'
+import { getEventRoleLabel } from './eventRole'
 import styles from './App.module.css'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
@@ -1019,7 +1020,7 @@ function App() {
           <p className={styles.eventMeta}>Arrangement-ID: {selectedEvent.id}</p>
           <p className={styles.eventMeta}>Bli-med-kode: {selectedEvent.joinCode}</p>
           <p className={styles.eventMeta}>Status: {STATUS_LABELS[selectedEvent.status] ?? 'Ukjent'}</p>
-          <p className={styles.eventMeta}>Din rolle: {selectedEvent.currentUserRole}</p>
+          <p className={styles.eventMeta}>Din rolle: {getEventRoleLabel(selectedEvent.currentUserRole)}</p>
           <p className={styles.eventMeta}>Deltakere: {selectedEvent.participants.length}</p>
           {canManageEvent ? (
             <div className={styles.workspaceActions}>
