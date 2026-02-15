@@ -213,6 +213,44 @@ describe('App core flows', () => {
     expect(await screen.findByText('Åpen smaking')).toBeInTheDocument()
   })
 
+  it('opens overview when app boots on /oversikt', async () => {
+    window.history.pushState({}, '', '/oversikt')
+
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+    ])
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Arrangementer' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/oversikt')
+  })
+
+  it('updates URL on tab click and syncs tab from popstate', async () => {
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+    ])
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Opprett arrangement' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Oversikt' }))
+    expect(window.location.pathname).toBe('/oversikt')
+    expect(await screen.findByRole('heading', { name: 'Arrangementer' })).toBeInTheDocument()
+
+    window.history.pushState({}, '', '/profil')
+    fireEvent(window, new PopStateEvent('popstate'))
+
+    expect(await screen.findByRole('heading', { name: 'Profil' })).toBeInTheDocument()
+  })
+
   it('shows favorites from the global favorites endpoint', async () => {
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },
@@ -248,7 +286,7 @@ describe('App core flows', () => {
     const logoutButton = screen.getByRole('button', { name: 'Logg ut' })
     const logoutForm = logoutButton.closest('form')
     expect(logoutForm).toHaveAttribute('method', 'post')
-    expect(logoutForm).toHaveAttribute('action', '/api/auth/logout?returnUrl=%2F')
+    expect(logoutForm).toHaveAttribute('action', '/api/auth/logout?returnUrl=%2Fprofil')
     expect(screen.queryByRole('link', { name: 'Bytt konto' })).not.toBeInTheDocument()
   })
 

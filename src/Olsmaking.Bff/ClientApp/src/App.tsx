@@ -36,6 +36,31 @@ type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
 type PrimaryTab = 'oversikt' | 'arrangement' | 'favoritter' | 'profil'
 type OverviewFilter = 'mine' | 'open'
 
+const TAB_ROUTES: Record<PrimaryTab, string> = {
+  oversikt: '/oversikt',
+  arrangement: '/arrangement',
+  favoritter: '/favoritter',
+  profil: '/profil',
+}
+
+function getPrimaryTabFromPath(pathname: string): PrimaryTab {
+  const normalizedPath = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname
+
+  switch (normalizedPath) {
+    case '/oversikt':
+      return 'oversikt'
+    case '/favoritter':
+      return 'favoritter'
+    case '/profil':
+      return 'profil'
+    case '/':
+    case '/arrangement':
+      return 'arrangement'
+    default:
+      return 'arrangement'
+  }
+}
+
 const STATUS_LABELS: Record<number, string> = {
   0: 'Utkast',
   1: 'Åpent',
@@ -80,7 +105,13 @@ function trimOptional(value: string): string | null {
 function App() {
   const [authState, setAuthState] = useState<AuthState>('loading')
   const [user, setUser] = useState<CurrentUser | null>(null)
-  const [activeTab, setActiveTab] = useState<PrimaryTab>('arrangement')
+  const [activeTab, setActiveTab] = useState<PrimaryTab>(() => {
+    if (typeof window === 'undefined') {
+      return 'arrangement'
+    }
+
+    return getPrimaryTabFromPath(window.location.pathname)
+  })
   const [createName, setCreateName] = useState('')
   const [createPending, setCreatePending] = useState(false)
   const [joinPending, setJoinPending] = useState(false)
@@ -157,6 +188,53 @@ function App() {
 
     return favoritesDateFormatter.format(parsed)
   }
+
+  function navigateToTab(nextTab: PrimaryTab, options?: { replace?: boolean }) {
+    setActiveTab(nextTab)
+
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const targetPath = TAB_ROUTES[nextTab]
+
+    if (window.location.pathname === targetPath) {
+      return
+    }
+
+    if (options?.replace) {
+      window.history.replaceState(window.history.state, '', targetPath)
+      return
+    }
+
+    window.history.pushState(window.history.state, '', targetPath)
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const initialTab = getPrimaryTabFromPath(window.location.pathname)
+    const canonicalPath = TAB_ROUTES[initialTab]
+
+    if (window.location.pathname !== canonicalPath) {
+      const canonicalUrl = `${canonicalPath}${window.location.search}`
+      window.history.replaceState(window.history.state, '', canonicalUrl)
+    }
+
+    setActiveTab(initialTab)
+
+    const handlePopState = () => {
+      setActiveTab(getPrimaryTabFromPath(window.location.pathname))
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   useEffect(() => {
     let isActive = true
@@ -487,7 +565,7 @@ function App() {
           type="button"
           className={activeTab === 'oversikt' ? styles.navItemActive : styles.navItem}
           onClick={() => {
-            setActiveTab('oversikt')
+            navigateToTab('oversikt')
           }}
         >
           Oversikt
@@ -496,7 +574,7 @@ function App() {
           type="button"
           className={activeTab === 'arrangement' ? styles.navItemActive : styles.navItem}
           onClick={() => {
-            setActiveTab('arrangement')
+            navigateToTab('arrangement')
           }}
         >
           Arrangement
@@ -508,7 +586,7 @@ function App() {
           type="button"
           className={activeTab === 'favoritter' ? styles.navItemActive : styles.navItem}
           onClick={() => {
-            setActiveTab('favoritter')
+            navigateToTab('favoritter')
           }}
         >
           Favoritter
@@ -517,7 +595,7 @@ function App() {
           type="button"
           className={activeTab === 'profil' ? styles.navItemActive : styles.navItem}
           onClick={() => {
-            setActiveTab('profil')
+            navigateToTab('profil')
           }}
         >
           Profil
@@ -540,7 +618,7 @@ function App() {
     try {
       const created = await createEvent(createName.trim())
       setCreateName('')
-      setActiveTab('oversikt')
+      navigateToTab('oversikt')
       setFeedbackMessage('Arrangementet er opprettet.')
       await loadEventWorkspace(created.id)
     } catch (error) {
@@ -564,7 +642,7 @@ function App() {
     try {
       const result = await joinEvent(joinEventId.trim(), joinCode.trim())
       await loadEventWorkspace(result.eventId)
-      setActiveTab('oversikt')
+      navigateToTab('oversikt')
       setFeedbackMessage(result.joined ? 'Du ble med i arrangementet.' : 'Du er allerede med i arrangementet.')
     } catch (error) {
       setErrorMessage(getApiMessage(error))
@@ -587,7 +665,7 @@ function App() {
   async function handleOpenFavoriteWorkspace(eventId: string, eventName: string) {
     setFeedbackMessage(null)
     setErrorMessage(null)
-    setActiveTab('oversikt')
+    navigateToTab('oversikt')
 
     try {
       await loadEventWorkspace(eventId)
