@@ -93,6 +93,11 @@ function App() {
   const [favoritesHydrated, setFavoritesHydrated] = useState(false)
   const [profileNickname, setProfileNickname] = useState('')
   const [profilePending, setProfilePending] = useState(false)
+  const [isLargeScreen, setIsLargeScreen] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 768px)').matches
+      : false,
+  )
 
   const [workspacePending, setWorkspacePending] = useState(false)
   const [workspaceActionPending, setWorkspaceActionPending] = useState(false)
@@ -444,7 +449,80 @@ function App() {
     setProfileNickname(user?.nickname ?? '')
   }, [user])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(min-width: 768px)')
+    const handleMediaChange = (event: MediaQueryListEvent) => {
+      setIsLargeScreen(event.matches)
+    }
+
+    setIsLargeScreen(mediaQuery.matches)
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleMediaChange)
+
+      return () => {
+        mediaQuery.removeEventListener('change', handleMediaChange)
+      }
+    }
+
+    mediaQuery.addListener(handleMediaChange)
+
+    return () => {
+      mediaQuery.removeListener(handleMediaChange)
+    }
+  }, [])
+
   const loginUrl = buildLoginUrl()
+
+  function renderPrimaryNavItems() {
+    return (
+      <>
+        <button
+          type="button"
+          className={activeTab === 'oversikt' ? styles.navItemActive : styles.navItem}
+          onClick={() => {
+            setActiveTab('oversikt')
+          }}
+        >
+          Oversikt
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'arrangement' ? styles.navItemActive : styles.navItem}
+          onClick={() => {
+            setActiveTab('arrangement')
+          }}
+        >
+          Arrangement
+        </button>
+        <button type="button" className={styles.navItemDisabled} disabled>
+          Smakinger
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'favoritter' ? styles.navItemActive : styles.navItem}
+          onClick={() => {
+            setActiveTab('favoritter')
+          }}
+        >
+          Favoritter
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'profil' ? styles.navItemActive : styles.navItem}
+          onClick={() => {
+            setActiveTab('profil')
+          }}
+        >
+          Profil
+        </button>
+      </>
+    )
+  }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -690,6 +768,8 @@ function App() {
           Bytt konto
         </a>
       </header>
+
+      {isLargeScreen ? <nav className={styles.desktopNav} aria-label="Hovednavigasjon">{renderPrimaryNavItems()}</nav> : null}
 
       {feedbackMessage ? <p className={styles.success}>{feedbackMessage}</p> : null}
       {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
@@ -1170,50 +1250,10 @@ function App() {
         </>
       )}
 
-      <nav className={styles.bottomNav} aria-label="Hovednavigasjon">
-        <button
-          type="button"
-          className={activeTab === 'oversikt' ? styles.navItemActive : styles.navItem}
-          onClick={() => {
-            setActiveTab('oversikt')
-          }}
-        >
-          Oversikt
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'arrangement' ? styles.navItemActive : styles.navItem}
-          onClick={() => {
-            setActiveTab('arrangement')
-          }}
-        >
-          Arrangement
-        </button>
-        <button type="button" className={styles.navItemDisabled} disabled>
-          Smakinger
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'favoritter' ? styles.navItemActive : styles.navItem}
-          onClick={() => {
-            setActiveTab('favoritter')
-          }}
-        >
-          Favoritter
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'profil' ? styles.navItemActive : styles.navItem}
-          onClick={() => {
-            setActiveTab('profil')
-          }}
-        >
-          Profil
-        </button>
-      </nav>
+      {!isLargeScreen ? <nav className={styles.bottomNav} aria-label="Hovednavigasjon">{renderPrimaryNavItems()}</nav> : null}
 
-      <p className={styles.navHint}>Smakinger kommer snart.</p>
-      <div className={styles.navSpacer} />
+      {!isLargeScreen ? <p className={styles.navHint}>Smakinger kommer snart.</p> : null}
+      {!isLargeScreen ? <div className={styles.navSpacer} /> : null}
     </main>
   )
 }
