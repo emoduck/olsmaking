@@ -65,6 +65,12 @@ dotnet restore Olsmaking.slnx
 npm install --prefix src/Olsmaking.Bff/ClientApp
 ```
 
+Apply database migrations (safe to run repeatedly):
+
+```bash
+dotnet ef database update --project src/Olsmaking.Bff/Olsmaking.Bff.csproj --startup-project src/Olsmaking.Bff/Olsmaking.Bff.csproj
+```
+
 2) Terminal 2: start the .NET backend (BFF host)
 
 ```bash

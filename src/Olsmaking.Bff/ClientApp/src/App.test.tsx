@@ -580,6 +580,79 @@ describe('App core flows', () => {
     })
   })
 
+  it('deletes event when confirmed', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'DELETE',
+        url: '/api/events/event-1',
+        response: emptyResponse(204),
+      },
+    ])
+
+    const confirmMock = vi.fn(() => true)
+    vi.stubGlobal('confirm', confirmMock)
+    window.history.pushState({}, '', '/oversikt?eventId=event-1')
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Slett arrangement' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1')).toBeTruthy()
+    })
+
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('Arrangementet er slettet.')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/oversikt')
+    expect(window.location.search).toBe('')
+    await waitFor(() => {
+      expect(screen.queryByText('Bli-med-kode: ABCD1234')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText('Arrangementet i lenken finnes ikke lenger.')).not.toBeInTheDocument()
+  })
+
+  it('does not delete event when confirmation is cancelled', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    const confirmMock = vi.fn(() => false)
+    vi.stubGlobal('confirm', confirmMock)
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Slett arrangement' }))
+
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1')).toBeFalsy()
+    expect(screen.getByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
+  })
+
   it('lets owner remove and restore participants', async () => {
     const fetchMock = installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },

@@ -252,6 +252,12 @@ export function getEvent(eventId: string): Promise<EventDetails> {
   return requestJson<EventDetails>(`/api/events/${encodeURIComponent(eventId)}`, { method: 'GET' })
 }
 
+export function deleteEvent(eventId: string): Promise<void> {
+  return requestVoid(`/api/events/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function patchEventStatus(eventId: string, status: 'open' | 'closed'): Promise<void> {
   return requestVoid(`/api/events/${encodeURIComponent(eventId)}/status`, {
     method: 'PATCH',

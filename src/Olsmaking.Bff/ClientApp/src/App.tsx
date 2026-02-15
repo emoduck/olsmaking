@@ -8,6 +8,7 @@ import {
   createBeerReview,
   createEvent,
   createEventBeer,
+  deleteEvent,
   getCurrentUser,
   getEvent,
   getEventBeers,
@@ -157,6 +158,7 @@ function App() {
 
   const [workspacePending, setWorkspacePending] = useState(false)
   const [workspaceActionPending, setWorkspaceActionPending] = useState(false)
+  const [deleteEventPending, setDeleteEventPending] = useState(false)
   const [participantActionPendingUserId, setParticipantActionPendingUserId] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null)
   const [beerList, setBeerList] = useState<EventBeer[]>([])
@@ -525,6 +527,46 @@ function App() {
     } finally {
       setWorkspaceActionPending(false)
       setParticipantActionPendingUserId('')
+    }
+  }
+
+  async function handleDeleteEvent() {
+    if (!selectedEvent || workspaceActionPending) {
+      return
+    }
+
+    const eventId = selectedEvent.id
+    const eventName = selectedEvent.name
+    const isConfirmed = window.confirm(
+      `Er du sikker på at du vil slette arrangementet "${eventName}"? Dette sletter også registrerte øl, favoritter og vurderinger.`,
+    )
+
+    if (!isConfirmed) {
+      return
+    }
+
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+    setWorkspaceActionPending(true)
+    setDeleteEventPending(true)
+
+    try {
+      await deleteEvent(eventId)
+      setSelectedEvent(null)
+      setBeerList([])
+      setFavoriteBeerIds([])
+      setFavoritePendingBeerIds([])
+      setSelectedBeerId('')
+      setMyEventList((previous) => previous.filter((item) => item.id !== eventId))
+      setOpenEventList((previous) => previous.filter((item) => item.id !== eventId))
+      setFavoriteList((previous) => previous.filter((favorite) => favorite.eventId !== eventId))
+      navigateToTab('oversikt', { replace: true })
+      setFeedbackMessage('Arrangementet er slettet.')
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setWorkspaceActionPending(false)
+      setDeleteEventPending(false)
     }
   }
 
@@ -1022,21 +1064,21 @@ function App() {
                       type="button"
                       className={styles.buttonSecondary}
                       onClick={() => {
-                        void handleEventStatusChange('open')
+                        void handleEventStatusChange(selectedEvent.status === 2 ? 'open' : 'closed')
                       }}
-                      disabled={workspaceActionPending || selectedEvent.status === 1}
+                      disabled={workspaceActionPending}
                     >
-                      Åpne arrangement
+                      {selectedEvent.status === 2 ? 'Åpne arrangement' : 'Lukk arrangement'}
                     </button>
                     <button
                       type="button"
                       className={styles.buttonSecondary}
                       onClick={() => {
-                        void handleEventStatusChange('closed')
+                        void handleDeleteEvent()
                       }}
-                      disabled={workspaceActionPending || selectedEvent.status === 2}
+                      disabled={workspaceActionPending}
                     >
-                      Lukk arrangement
+                      {deleteEventPending ? 'Sletter...' : 'Slett arrangement'}
                     </button>
                   </div>
                 ) : null}

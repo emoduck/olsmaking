@@ -121,6 +121,13 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
+    await using var migrationScope = app.Services.CreateAsyncScope();
+    var migrationDbContext = migrationScope.ServiceProvider.GetRequiredService<OlsmakingDbContext>();
+    await migrationDbContext.Database.MigrateAsync();
+}
+
+if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
 }
 
@@ -1233,6 +1240,75 @@ if (auth0Settings.IsConfigured)
         });
     }).RequireAuthorization();
 
+    eventsGroup.MapDelete("/{eventId:guid}", async (Guid eventId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var @event = await dbContext.Events.SingleOrDefaultAsync(x => x.Id == eventId, cancellationToken);
+
+        if (@event is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!user.HasAdminScope() && @event.OwnerUserId != currentUser.Id)
+        {
+            return Results.Forbid();
+        }
+
+        var eventBeerIds = await dbContext.EventBeers
+            .AsNoTracking()
+            .Where(x => x.EventId == eventId)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        if (eventBeerIds.Count > 0)
+        {
+            var beerFavorites = await dbContext.BeerFavorites
+                .Where(x => x.EventId == eventId || eventBeerIds.Contains(x.BeerId))
+                .ToListAsync(cancellationToken);
+            dbContext.BeerFavorites.RemoveRange(beerFavorites);
+
+            var beerReviews = await dbContext.BeerReviews
+                .Where(x => x.EventId == eventId || eventBeerIds.Contains(x.BeerId))
+                .ToListAsync(cancellationToken);
+            dbContext.BeerReviews.RemoveRange(beerReviews);
+        }
+        else
+        {
+            var orphanedFavorites = await dbContext.BeerFavorites
+                .Where(x => x.EventId == eventId)
+                .ToListAsync(cancellationToken);
+            dbContext.BeerFavorites.RemoveRange(orphanedFavorites);
+
+            var orphanedReviews = await dbContext.BeerReviews
+                .Where(x => x.EventId == eventId)
+                .ToListAsync(cancellationToken);
+            dbContext.BeerReviews.RemoveRange(orphanedReviews);
+        }
+
+        var participants = await dbContext.EventParticipants
+            .Where(x => x.EventId == eventId)
+            .ToListAsync(cancellationToken);
+        dbContext.EventParticipants.RemoveRange(participants);
+
+        var eventBeers = await dbContext.EventBeers
+            .Where(x => x.EventId == eventId)
+            .ToListAsync(cancellationToken);
+        dbContext.EventBeers.RemoveRange(eventBeers);
+
+        dbContext.Events.Remove(@event);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Results.NoContent();
+    }).RequireAuthorization();
+
     eventsGroup.MapPost("/{eventId:guid}/participants/{userId:guid}/restore", async (Guid eventId, Guid userId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
     {
         var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
@@ -1357,6 +1433,7 @@ else
     eventsGroup.MapPost("/{eventId:guid}/join", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/regenerate-code", AuthUnavailable);
     eventsGroup.MapPatch("/{eventId:guid}/status", AuthUnavailable);
+    eventsGroup.MapDelete("/{eventId:guid}", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/participants/{userId:guid}/restore", AuthUnavailable);
     eventsGroup.MapDelete("/{eventId:guid}/participants/{userId:guid}", AuthUnavailable);
 }

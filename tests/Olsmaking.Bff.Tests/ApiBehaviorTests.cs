@@ -471,6 +471,179 @@ public sealed class ApiBehaviorTests
     }
 
     [Fact]
+    public async Task DeleteEvent_OwnerCanDelete_AndRemovesDependentData()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Delete Cascade Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var eventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = eventPayload.GetProperty("id").GetGuid();
+        var joinCode = eventPayload.GetProperty("joinCode").GetString();
+
+        Assert.False(string.IsNullOrWhiteSpace(joinCode));
+
+        using var joinResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/join",
+            "member-sub",
+            new
+            {
+                joinCode,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+
+        using var addBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "Delete Target Beer",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addBeerResponse.StatusCode);
+        var addBeerPayload = await addBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var beerId = addBeerPayload.GetProperty("id").GetGuid();
+
+        using var addFavoriteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers/{beerId}/favorite",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, addFavoriteResponse.StatusCode);
+
+        using var memberMeResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Get,
+            "/api/users/me",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.OK, memberMeResponse.StatusCode);
+        var memberPayload = await memberMeResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var memberUserId = memberPayload.GetProperty("id").GetGuid();
+
+        using (var reviewInsertScope = factory.Services.CreateScope())
+        {
+            var reviewInsertDbContext = reviewInsertScope.ServiceProvider.GetRequiredService<OlsmakingDbContext>();
+            var now = DateTimeOffset.UtcNow;
+            var reviewId = Guid.NewGuid();
+
+            await reviewInsertDbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO BeerReviews
+                (Id, EventId, BeerId, UserId, ColorScore, SmellScore, TasteScore, TotalScore, Notes, AromaNotes, AppearanceNotes, FlavorNotes, CreatedUtc, UpdatedUtc, RowVersion)
+                VALUES
+                ({reviewId}, {eventId}, {beerId}, {memberUserId}, {5}, {5}, {5}, {5}, {"Cleanup candidate"}, {null}, {null}, {null}, {now}, {now}, X'01')
+                """);
+        }
+
+        using var deleteEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteEventResponse.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<OlsmakingDbContext>();
+
+        Assert.False(await dbContext.Events.AnyAsync(x => x.Id == eventId));
+        Assert.False(await dbContext.EventParticipants.AnyAsync(x => x.EventId == eventId));
+        Assert.False(await dbContext.EventBeers.AnyAsync(x => x.EventId == eventId));
+        Assert.False(await dbContext.BeerFavorites.AnyAsync(x => x.EventId == eventId));
+        Assert.False(await dbContext.BeerReviews.AnyAsync(x => x.EventId == eventId));
+    }
+
+    [Fact]
+    public async Task DeleteEvent_AdminCanDelete_EventOwnedByAnotherUser()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Admin Delete Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var eventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = eventPayload.GetProperty("id").GetGuid();
+
+        using var deleteEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}",
+            "admin-sub",
+            scopes: "admin-scope");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteEventResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteEvent_NonOwnerNonAdmin_CannotDelete()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Forbidden Delete Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var eventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = eventPayload.GetProperty("id").GetGuid();
+
+        using var deleteEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.Forbidden, deleteEventResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteEvent_ReturnsNotFound_ForUnknownEventId()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var deleteEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{Guid.NewGuid()}",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NotFound, deleteEventResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task RestoreParticipant_AllowsAccessAndMakesJoinIdempotent_AfterRemoval()
     {
         using var factory = new OlsmakingApiFactory(auth0Configured: true);
