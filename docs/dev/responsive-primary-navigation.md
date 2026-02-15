@@ -30,7 +30,7 @@ Align primary navigation with device expectations by using a fixed, centered bot
 - CSS module token system continues to provide spacing, color, and typography values.
 
 ## Open Questions
-- Should desktop navigation eventually move into route-based navigation instead of local tab state?
+- Route-based navigation follow-up is tracked in `docs/dev/spa-routing-foundation.md` and `docs/adr/ADR-007-spa-tab-routing-and-deep-link-support.md`.
 - Should the disabled "Smakinger" tab remain visible in desktop navigation or be hidden until available?
 
 ## Validation Plan
