@@ -304,6 +304,12 @@ export function createEventBeer(eventId: string, payload: CreateEventBeerRequest
   })
 }
 
+export function removeEventBeer(eventId: string, beerId: string): Promise<void> {
+  return requestVoid(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function createBeerReview(eventId: string, beerId: string, payload: UpsertBeerReviewRequest): Promise<BeerReview> {
   return requestJson<BeerReview>(`/api/events/${encodeURIComponent(eventId)}/beers/${encodeURIComponent(beerId)}/reviews`, {
     method: 'POST',

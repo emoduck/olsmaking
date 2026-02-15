@@ -1023,6 +1023,180 @@ public sealed class ApiBehaviorTests
     }
 
     [Fact]
+    public async Task DeleteEventBeer_AllowsOwnerAndAdmin_BlocksMember()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Beer Deletion Access Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+        var joinCode = createEventPayload.GetProperty("joinCode").GetString();
+
+        using var addFirstBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "Owner Delete Beer",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addFirstBeerResponse.StatusCode);
+        var firstBeerPayload = await addFirstBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var firstBeerId = firstBeerPayload.GetProperty("id").GetGuid();
+
+        using var memberJoinResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/join",
+            "member-sub",
+            new
+            {
+                joinCode,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, memberJoinResponse.StatusCode);
+
+        using var memberDeleteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/beers/{firstBeerId}",
+            "member-sub");
+
+        Assert.Equal(HttpStatusCode.Forbidden, memberDeleteResponse.StatusCode);
+
+        using var ownerDeleteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/beers/{firstBeerId}",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NoContent, ownerDeleteResponse.StatusCode);
+
+        using var addSecondBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "Admin Delete Beer",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addSecondBeerResponse.StatusCode);
+        var secondBeerPayload = await addSecondBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var secondBeerId = secondBeerPayload.GetProperty("id").GetGuid();
+
+        using var adminDeleteResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/beers/{secondBeerId}",
+            "admin-sub",
+            scopes: "admin-scope");
+
+        Assert.Equal(HttpStatusCode.NoContent, adminDeleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteEventBeer_ReturnsConflict_WhenBeerHasReviews()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Beer Deletion Review Guard Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+
+        using var addBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/events/{eventId}/beers",
+            "owner-sub",
+            new
+            {
+                name = "Reviewed Beer",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, addBeerResponse.StatusCode);
+        var addBeerPayload = await addBeerResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var beerId = addBeerPayload.GetProperty("id").GetGuid();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<OlsmakingDbContext>();
+            var ownerUser = await dbContext.AppUsers.SingleAsync(x => x.Auth0Subject == "owner-sub");
+            var now = DateTimeOffset.UtcNow;
+            var reviewId = Guid.NewGuid();
+
+            await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO BeerReviews
+                (Id, EventId, BeerId, UserId, ColorScore, SmellScore, TasteScore, TotalScore, Notes, AromaNotes, AppearanceNotes, FlavorNotes, CreatedUtc, UpdatedUtc, RowVersion)
+                VALUES
+                ({reviewId}, {eventId}, {beerId}, {ownerUser.Id}, {5}, {5}, {5}, {5}, {"Reviewed"}, {null}, {null}, {null}, {now}, {now}, X'01')
+                """);
+        }
+
+        using var deleteBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/beers/{beerId}",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.Conflict, deleteBeerResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteEventBeer_ReturnsNotFound_WhenBeerDoesNotExistInEvent()
+    {
+        using var factory = new OlsmakingApiFactory(auth0Configured: true);
+        using var client = factory.CreateClient();
+
+        using var createEventResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Post,
+            "/api/events",
+            "owner-sub",
+            new
+            {
+                name = "Beer Deletion Not Found Event",
+            });
+
+        Assert.Equal(HttpStatusCode.Created, createEventResponse.StatusCode);
+        var createEventPayload = await createEventResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var eventId = createEventPayload.GetProperty("id").GetGuid();
+
+        using var deleteBeerResponse = await SendAsUserAsync(
+            client,
+            HttpMethod.Delete,
+            $"/api/events/{eventId}/beers/{Guid.NewGuid()}",
+            "owner-sub");
+
+        Assert.Equal(HttpStatusCode.NotFound, deleteBeerResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task FavoritesMine_ReturnsCurrentUsersFavorites_InDescendingFavoriteOrder()
     {
         using var factory = new OlsmakingApiFactory(auth0Configured: true);

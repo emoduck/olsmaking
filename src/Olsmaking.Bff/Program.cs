@@ -621,6 +621,55 @@ if (auth0Settings.IsConfigured)
         return Results.Ok(beers);
     }).RequireAuthorization();
 
+    eventsGroup.MapDelete("/{eventId:guid}/beers/{beerId:guid}", async (Guid eventId, Guid beerId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
+    {
+        var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
+
+        if (currentUserResult.Error is not null)
+        {
+            return currentUserResult.Error;
+        }
+
+        var currentUser = currentUserResult.User!;
+        var eventAccessResult = await GetEventAccessAsync(eventId, currentUser.Id, user.HasAdminScope(), dbContext, cancellationToken);
+
+        if (eventAccessResult.Error is not null)
+        {
+            return eventAccessResult.Error;
+        }
+
+        if (!eventAccessResult.IsAdminOrOwner)
+        {
+            return Results.Forbid();
+        }
+
+        var hasAnyReviews = await dbContext.BeerReviews
+            .AsNoTracking()
+            .AnyAsync(x => x.EventId == eventId && x.BeerId == beerId, cancellationToken);
+
+        if (hasAnyReviews)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Beer cannot be removed",
+                detail: "This beer already has reviews and cannot be removed from the event.");
+        }
+
+        var beer = await dbContext.EventBeers
+            .SingleOrDefaultAsync(x => x.EventId == eventId && x.Id == beerId, cancellationToken);
+
+        if (beer is null)
+        {
+            return Results.NotFound();
+        }
+
+        dbContext.EventBeers.Remove(beer);
+        eventAccessResult.Event!.UpdatedUtc = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Results.NoContent();
+    }).RequireAuthorization();
+
     eventsGroup.MapGet("/{eventId:guid}/favorites/me", async (Guid eventId, ClaimsPrincipal user, OlsmakingDbContext dbContext, CancellationToken cancellationToken) =>
     {
         var currentUserResult = await GetCurrentAppUserAsync(user, dbContext, cancellationToken);
@@ -1423,6 +1472,7 @@ else
     eventsGroup.MapGet("/{eventId:guid}", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers", AuthUnavailable);
     eventsGroup.MapGet("/{eventId:guid}/beers", AuthUnavailable);
+    eventsGroup.MapDelete("/{eventId:guid}/beers/{beerId:guid}", AuthUnavailable);
     eventsGroup.MapGet("/{eventId:guid}/favorites/me", AuthUnavailable);
     favoritesGroup.MapGet("/mine", AuthUnavailable);
     eventsGroup.MapPost("/{eventId:guid}/beers/{beerId:guid}/favorite", AuthUnavailable);

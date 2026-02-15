@@ -50,7 +50,9 @@ Specify the end-to-end MVP behavior for collaborative beer tasting events in Ols
 ### Beer Rules
 - Beers are created within an event context.
 - One beer can only belong to one event.
-- Beer edits/deletes follow owner/admin policy.
+- Beer removal is limited to event owner or admin.
+- Beer removal is blocked when at least one review exists for that beer.
+- Beer without reviews can be hard-deleted and should cascade dependent favorites.
 
 ### Review Rules
 - One review per user+beer+event.
@@ -80,6 +82,7 @@ Specify the end-to-end MVP behavior for collaborative beer tasting events in Ols
   - `POST /api/events/{eventId}/regenerate-code`
   - `POST /api/events/{eventId}/beers`
   - `GET /api/events/{eventId}/beers`
+  - `DELETE /api/events/{eventId}/beers/{beerId}`
   - `POST /api/events/{eventId}/beers/{beerId}/reviews`
   - `PATCH /api/events/{eventId}/beers/{beerId}/reviews/me`
   - `DELETE /api/events/{eventId}/participants/{userId}`

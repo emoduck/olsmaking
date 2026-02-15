@@ -738,6 +738,112 @@ describe('App core flows', () => {
     expect(screen.getByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
   })
 
+  it('removes beer for event owner when confirmed', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'DELETE',
+        url: '/api/events/event-1/beers/beer-1',
+        response: emptyResponse(204),
+      },
+    ])
+
+    const confirmMock = vi.fn(() => true)
+    vi.stubGlobal('confirm', confirmMock)
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Fjern Pale Ale fra arrangementet' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1/beers/beer-1')).toBeTruthy()
+    })
+
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('Pale Ale er fjernet fra arrangementet.')).toBeInTheDocument()
+    expect(screen.queryByText('Pale Ale')).not.toBeInTheDocument()
+  })
+
+  it('does not remove beer when confirmation is cancelled', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    const confirmMock = vi.fn(() => false)
+    vi.stubGlobal('confirm', confirmMock)
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Fjern Pale Ale fra arrangementet' }))
+
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1/beers/beer-1')).toBeFalsy()
+    expect(screen.getByText('Pale Ale')).toBeInTheDocument()
+  })
+
+  it('hides remove beer action for members', async () => {
+    const memberEventDetails = {
+      ...eventDetails,
+      ownerUserId: 'owner-user-2',
+      currentUserRole: 'member',
+      participants: [
+        {
+          userId: 'user-1',
+          role: 1,
+          status: 1,
+          joinedUtc: '2026-01-01T10:00:00Z',
+          removedUtc: null,
+          nickname: 'Testbruker',
+        },
+      ],
+    }
+
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(memberEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    expect(screen.queryByRole('button', { name: /Fjern .* fra arrangementet/i })).not.toBeInTheDocument()
+  })
+
   it('lets owner remove and restore participants', async () => {
     const fetchMock = installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },

@@ -21,6 +21,7 @@ import {
   patchEventStatus,
   patchCurrentUserNickname,
   patchMyBeerReview,
+  removeEventBeer,
   removeParticipant,
   restoreParticipant,
   removeBeerFavorite,
@@ -227,6 +228,7 @@ function App() {
   const [beerAbv, setBeerAbv] = useState('')
   const [addBeerPending, setAddBeerPending] = useState(false)
   const [isAddBeerFormOpen, setIsAddBeerFormOpen] = useState(false)
+  const [deleteBeerPendingId, setDeleteBeerPendingId] = useState('')
 
   const [reviewColorScore, setReviewColorScore] = useState(3)
   const [reviewSmellScore, setReviewSmellScore] = useState(3)
@@ -946,6 +948,49 @@ function App() {
     }
   }
 
+  async function handleRemoveBeer(beerId: string, beerName: string) {
+    if (!selectedEvent || !canManageEvent || deleteBeerPendingId) {
+      return
+    }
+
+    const isConfirmed = window.confirm(
+      `Er du sikker på at du vil fjerne "${beerName}" fra arrangementet? Ølet kan ikke gjenopprettes.`,
+    )
+
+    if (!isConfirmed) {
+      return
+    }
+
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+    setDeleteBeerPendingId(beerId)
+
+    try {
+      await removeEventBeer(selectedEvent.id, beerId)
+      setBeerList((previous) => {
+        const next = previous.filter((item) => item.id !== beerId)
+
+        setSelectedBeerId((currentSelectedBeerId) => {
+          if (currentSelectedBeerId !== beerId) {
+            return currentSelectedBeerId
+          }
+
+          return next[0]?.id ?? ''
+        })
+
+        return next
+      })
+      setFavoriteBeerIds((previous) => previous.filter((item) => item !== beerId))
+      setFavoritePendingBeerIds((previous) => previous.filter((item) => item !== beerId))
+      setFavoriteList((previous) => previous.filter((favorite) => !(favorite.eventId === selectedEvent.id && favorite.beerId === beerId)))
+      setFeedbackMessage(`${beerName} er fjernet fra arrangementet.`)
+    } catch (error) {
+      setErrorMessage(getApiMessage(error))
+    } finally {
+      setDeleteBeerPendingId('')
+    }
+  }
+
   function handleToggleBeerPanel(beerId: string) {
     setSelectedBeerId((previous) => (previous === beerId ? '' : beerId))
   }
@@ -1146,23 +1191,46 @@ function App() {
                       <span className={styles.beerAccordionHint}>{beer.id === selectedBeerId ? 'Skjul vurdering' : 'Vis vurdering'}</span>
                     </button>
 
-                    <button
-                      type="button"
-                      className={styles.favoriteButton}
-                      onClick={() => {
-                        void handleToggleFavorite(beer.id, beer.name)
-                      }}
-                      disabled={favoritePendingBeerIdSet.has(beer.id)}
-                      aria-label={favoriteBeerIdSet.has(beer.id) ? `Fjern favoritt for ${beer.name}` : `Lagre ${beer.name} som favoritt`}
-                      aria-pressed={favoriteBeerIdSet.has(beer.id)}
-                      aria-busy={favoritePendingBeerIdSet.has(beer.id)}
-                      title={favoriteBeerIdSet.has(beer.id) ? 'Markert som favoritt' : 'Ikke markert som favoritt'}
-                    >
-                      <svg className={styles.favoriteIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A5.96 5.96 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z" />
-                      </svg>
-                      {favoritePendingBeerIdSet.has(beer.id) ? <span className={styles.srOnly}>Lagrer...</span> : null}
-                    </button>
+                    <div className={styles.beerRowActions}>
+                      {canManageEvent ? (
+                        <button
+                          type="button"
+                          className={styles.iconButtonSecondary}
+                          onClick={() => {
+                            void handleRemoveBeer(beer.id, beer.name)
+                          }}
+                          disabled={deleteBeerPendingId.length > 0}
+                          aria-label={`Fjern ${beer.name} fra arrangementet`}
+                          title="Fjern øl"
+                        >
+                          {deleteBeerPendingId === beer.id ? (
+                            <span className={styles.srOnly}>Fjerner...</span>
+                          ) : (
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className={styles.iconButtonArrow}>
+                              <path d="M4 7h16M9 7V5h6v2m-7 3v8m4-8v8m4-8v8M6 7l1 13h10l1-13" />
+                            </svg>
+                          )}
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className={styles.favoriteButton}
+                        onClick={() => {
+                          void handleToggleFavorite(beer.id, beer.name)
+                        }}
+                        disabled={favoritePendingBeerIdSet.has(beer.id)}
+                        aria-label={favoriteBeerIdSet.has(beer.id) ? `Fjern favoritt for ${beer.name}` : `Lagre ${beer.name} som favoritt`}
+                        aria-pressed={favoriteBeerIdSet.has(beer.id)}
+                        aria-busy={favoritePendingBeerIdSet.has(beer.id)}
+                        title={favoriteBeerIdSet.has(beer.id) ? 'Markert som favoritt' : 'Ikke markert som favoritt'}
+                      >
+                        <svg className={styles.favoriteIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A5.96 5.96 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z" />
+                        </svg>
+                        {favoritePendingBeerIdSet.has(beer.id) ? <span className={styles.srOnly}>Lagrer...</span> : null}
+                      </button>
+                    </div>
                   </div>
 
                   {beer.id === selectedBeerId ? (

@@ -10,6 +10,7 @@ const meta = {
     label: 'Farge',
     value: 4,
     disabled: false,
+    onChange: () => undefined,
   },
 } satisfies Meta<typeof StarScoreSlider>
 
