@@ -44,9 +44,28 @@ const TAB_ROUTES: Record<PrimaryTab, string> = {
   profil: '/profil',
 }
 
-function getOverviewDeepLinkEventId(search: string): string {
-  const params = new URLSearchParams(search)
-  return params.get('eventId')?.trim() ?? ''
+function normalizePath(pathname: string): string {
+  if (pathname.endsWith('/') && pathname.length > 1) {
+    return pathname.slice(0, -1)
+  }
+
+  return pathname
+}
+
+function getOverviewEventIdFromPath(pathname: string): string {
+  const normalizedPath = normalizePath(pathname)
+
+  if (!normalizedPath.startsWith('/oversikt/')) {
+    return ''
+  }
+
+  const segments = normalizedPath.split('/').filter(Boolean)
+
+  if (segments.length !== 2 || segments[0] !== 'oversikt') {
+    return ''
+  }
+
+  return decodeURIComponent(segments[1] ?? '').trim()
 }
 
 function buildTabUrl(tab: PrimaryTab, options?: { eventId?: string }): string {
@@ -62,18 +81,17 @@ function buildTabUrl(tab: PrimaryTab, options?: { eventId?: string }): string {
     return path
   }
 
-  const params = new URLSearchParams()
-  params.set('eventId', eventId)
-
-  return `${path}?${params.toString()}`
+  return `${path}/${encodeURIComponent(eventId)}`
 }
 
 function getPrimaryTabFromPath(pathname: string): PrimaryTab {
-  const normalizedPath = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname
+  const normalizedPath = normalizePath(pathname)
+
+  if (normalizedPath === '/oversikt' || normalizedPath.startsWith('/oversikt/')) {
+    return 'oversikt'
+  }
 
   switch (normalizedPath) {
-    case '/oversikt':
-      return 'oversikt'
     case '/favoritter':
       return 'favoritter'
     case '/profil':
@@ -137,6 +155,13 @@ function App() {
 
     return getPrimaryTabFromPath(window.location.pathname)
   })
+  const [currentPath, setCurrentPath] = useState(() => {
+    if (typeof window === 'undefined') {
+      return TAB_ROUTES.arrangement
+    }
+
+    return window.location.pathname
+  })
   const [createName, setCreateName] = useState('')
   const [createPending, setCreatePending] = useState(false)
   const [joinPending, setJoinPending] = useState(false)
@@ -194,6 +219,8 @@ function App() {
   const [joinCode, setJoinCode] = useState(queryValues.joinCode)
 
   const selectedBeer = beerList.find((item) => item.id === selectedBeerId) ?? null
+  const overviewEventId = getOverviewEventIdFromPath(currentPath)
+  const isOverviewEventRoute = activeTab === 'oversikt' && overviewEventId.length > 0
   const selectedEventId = selectedEvent?.id ?? ''
   const selectedBeerReviewId = selectedBeer?.id ?? ''
   const favoriteBeerIdSet = useMemo(() => new Set(favoriteBeerIds), [favoriteBeerIds])
@@ -226,15 +253,18 @@ function App() {
     const currentUrl = `${window.location.pathname}${window.location.search}`
 
     if (currentUrl === targetUrl) {
+      setCurrentPath(window.location.pathname)
       return
     }
 
     if (options?.replace) {
       window.history.replaceState(window.history.state, '', targetUrl)
+      setCurrentPath(new URL(targetUrl, window.location.origin).pathname)
       return
     }
 
     window.history.pushState(window.history.state, '', targetUrl)
+    setCurrentPath(new URL(targetUrl, window.location.origin).pathname)
   }
 
   useEffect(() => {
@@ -243,17 +273,29 @@ function App() {
     }
 
     const initialTab = getPrimaryTabFromPath(window.location.pathname)
-    const canonicalPath = TAB_ROUTES[initialTab]
+    const initialEventId = getOverviewEventIdFromPath(window.location.pathname)
+    let canonicalUrl: string
 
-    if (window.location.pathname !== canonicalPath) {
-      const canonicalUrl = `${canonicalPath}${window.location.search}`
+    if (initialTab === 'oversikt') {
+      canonicalUrl = buildTabUrl('oversikt', { eventId: initialEventId })
+    } else if (initialTab === 'arrangement') {
+      canonicalUrl = `${TAB_ROUTES.arrangement}${window.location.search}`
+    } else {
+      canonicalUrl = TAB_ROUTES[initialTab]
+    }
+
+    const currentUrl = `${window.location.pathname}${window.location.search}`
+
+    if (currentUrl !== canonicalUrl) {
       window.history.replaceState(window.history.state, '', canonicalUrl)
     }
 
     setActiveTab(initialTab)
+    setCurrentPath(window.location.pathname)
 
     const handlePopState = () => {
       setActiveTab(getPrimaryTabFromPath(window.location.pathname))
+      setCurrentPath(window.location.pathname)
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -272,7 +314,7 @@ function App() {
       return
     }
 
-    const deepLinkEventId = getOverviewDeepLinkEventId(window.location.search)
+    const deepLinkEventId = getOverviewEventIdFromPath(currentPath)
 
     if (!deepLinkEventId || deepLinkEventId === selectedEventId) {
       return
@@ -311,7 +353,19 @@ function App() {
       isActive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- avoids re-trigger loops from function identity changes.
-  }, [activeTab, authState, selectedEventId])
+  }, [activeTab, authState, currentPath, selectedEventId])
+
+  useEffect(() => {
+    if (activeTab !== 'oversikt' || overviewEventId) {
+      return
+    }
+
+    setSelectedEvent(null)
+    setBeerList([])
+    setFavoriteBeerIds([])
+    setFavoritePendingBeerIds([])
+    setSelectedBeerId('')
+  }, [activeTab, overviewEventId])
 
   useEffect(() => {
     let isActive = true
@@ -648,7 +702,7 @@ function App() {
     return () => {
       isMounted = false
     }
-  }, [activeTab, authState])
+  }, [activeTab, authState]) // eslint-disable-line react-hooks/exhaustive-deps -- favoritesPending is intentionally excluded to avoid refresh loops.
 
   useEffect(() => {
     setProfileNickname(user?.nickname ?? '')
@@ -1043,13 +1097,13 @@ function App() {
             )}
           </section>
 
-          {workspacePending ? (
+          {isOverviewEventRoute && workspacePending ? (
             <section className={styles.panel}>
               <p className={styles.muted}>Laster arbeidsflate...</p>
             </section>
           ) : null}
 
-          {selectedEvent ? (
+          {isOverviewEventRoute && selectedEvent ? (
             <>
               <section className={styles.panel}>
                 <h2 className={styles.sectionTitle}>Arrangement</h2>

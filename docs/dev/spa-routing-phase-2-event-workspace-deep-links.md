@@ -2,7 +2,7 @@
 
 ## Implementation Status
 - In progress
-- Current implementation target: query-based deep links on overview (`/oversikt?eventId=<id>`)
+- Current implementation target: path-based deep links on overview (`/oversikt/<eventId>`)
 
 ## Purpose
 Plan deep-link support that opens a specific event workspace directly from external links while preserving Phase 1 primary-tab routing behavior.
@@ -24,7 +24,7 @@ Plan deep-link support that opens a specific event workspace directly from exter
 - Entry points include external links and manual URL entry.
 - Primary route remains URL-driven from Phase 1 (`/oversikt`, `/arrangement`, `/favoritter`, `/profil`).
 - Phase 2 deep-link target should open overview context with event workspace loaded for the specified `eventId`.
-- Chosen shape in this phase: `/oversikt?eventId=<id>`.
+- Chosen shape in this phase: `/oversikt/<eventId>`.
 - On valid access, workspace loads with existing event details/beer/review hydration behavior.
 - On not found or forbidden, user sees dedicated deep-link error messaging and remains in overview context.
 - On unauthenticated state, login flow should preserve return URL and return user to the deep link.
@@ -41,24 +41,25 @@ Plan deep-link support that opens a specific event workspace directly from exter
 - Event identifier validation is currently backend-driven; client does not enforce strict GUID format in this phase.
 
 ## Acceptance Criteria
-- Direct-open of `/oversikt?eventId=<id>` hydrates the event workspace when access is valid.
-- Selecting or opening an event workspace from UI updates URL to `/oversikt?eventId=<id>`.
+- Direct-open of `/oversikt/<eventId>` hydrates the event workspace when access is valid.
+- Selecting or opening an event workspace from UI updates URL to `/oversikt/<eventId>`.
 - Forbidden deep links show explicit access error text.
 - Unauthenticated deep links preserve `returnUrl` through login redirect.
 - Existing primary tab routing behavior from Phase 1 continues to work unchanged.
+- Query-shape links like `/oversikt?eventId=<id>` are ignored and render plain `/oversikt`.
 
 ## Open Questions
-- Should long-term route shape move from query-based (`/oversikt?eventId=...`) to path-based (`/oversikt/<eventId>`) after Phase 2 stabilization?
+- Should we enforce client-side eventId format validation before hydration, or keep backend-driven validation only?
 - Should successful workspace deep-link hydration update browser title with event name in a later phase?
 
 ## Validation Plan
 - Frontend: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`
 - Backend: `dotnet build src/Olsmaking.Bff/Olsmaking.Bff.csproj`
 - Integration:
-  - Direct-open `/oversikt?eventId=<guid>` in integrated host and verify workspace hydration
+  - Direct-open `/oversikt/<guid>` in integrated host and verify workspace hydration
   - Refresh on deep-link URL and verify consistent state
   - Verify forbidden/not-found event links show expected error handling
 
 ## ADR Needed?
 - No (covered by `docs/adr/ADR-007-spa-tab-routing-and-deep-link-support.md`)
-- Create a new ADR only if route shape changes from agreed URL-driven model or requires backend routing/auth contract changes.
+- ADR-007 is updated to record the path-based event route shape.

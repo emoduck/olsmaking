@@ -16,7 +16,8 @@ Adopt URL-driven client-side routing for primary tab navigation.
 Decision details:
 - Represent primary tabs with explicit client routes: `/oversikt`, `/arrangement`, `/favoritter`, `/profil`.
 - Treat URL pathname as the source of truth for active primary tab.
-- For event workspace deep links, use query-based route shape in this phase: `/oversikt?eventId=<id>`.
+- For event workspace deep links, use path-based route shape: `/oversikt/<eventId>`.
+- Treat `eventId` as a route parameter for deep-link hydration; invalid, forbidden, and not-found handling remains unchanged.
 - Preserve existing backend route boundaries (`/api`, auth callback paths) and do not route those through client navigation.
 - Keep existing BFF SPA fallback behavior so direct open/refresh on client routes resolves correctly.
 - Keep current F1-first hosting posture with no additional Azure resources or tier upgrades.
@@ -32,11 +33,11 @@ Decision details:
 ### Negative
 - Requires migration from direct local tab-state transitions to route-aware navigation helpers.
 - Increases route design responsibility (default route, unknown path handling, naming consistency).
-- Event-level deep linking remains deferred and can still create user expectations beyond this phase.
+- Path parameter parsing adds stricter route-handling requirements in the SPA.
 
 ## Alternatives Considered
 - Keep local tab state only: simplest now but does not support deep links.
-- Query-string tab state (`?tab=oversikt`): partially solves linking, but weaker route semantics and harder future expansion.
+- Query-string event deep links (`/oversikt?eventId=<id>`): workable, but weaker canonical semantics for resource-like deep links.
 - Hash routing (`#/oversikt`): avoids server-route concerns but produces lower-quality URLs and is unnecessary with current fallback support.
 
 ## Cost / Operational Impact

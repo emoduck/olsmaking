@@ -242,8 +242,8 @@ describe('App core flows', () => {
     expect(window.location.pathname).toBe('/oversikt')
   })
 
-  it('hydrates workspace when app boots on /oversikt?eventId=<id>', async () => {
-    window.history.pushState({}, '', '/oversikt?eventId=event-1')
+  it('hydrates workspace when app boots on /oversikt/<id>', async () => {
+    window.history.pushState({}, '', '/oversikt/event-1')
 
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },
@@ -264,8 +264,26 @@ describe('App core flows', () => {
     expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
   })
 
-  it('shows dedicated error when deep-linked event is forbidden', async () => {
+  it('renders plain overview when app boots on /oversikt?eventId=<id>', async () => {
     window.history.pushState({}, '', '/oversikt?eventId=event-1')
+
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+    ])
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Arrangementer' })).toBeInTheDocument()
+    expect(screen.queryByText('Bli-med-kode: ABCD1234')).not.toBeInTheDocument()
+    expect(window.location.pathname).toBe('/oversikt')
+    expect(window.location.search).toBe('')
+  })
+
+  it('shows dedicated error when deep-linked event is forbidden', async () => {
+    window.history.pushState({}, '', '/oversikt/event-1')
 
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },
@@ -283,7 +301,7 @@ describe('App core flows', () => {
   })
 
   it('keeps deep-link returnUrl for unauthenticated users', async () => {
-    window.history.pushState({}, '', '/oversikt?eventId=event-1')
+    window.history.pushState({}, '', '/oversikt/event-1')
 
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse({ title: 'Unauthorized' }, 401) },
@@ -295,7 +313,7 @@ describe('App core flows', () => {
     render(<App />)
 
     const loginLink = await screen.findByRole('link', { name: 'Logg inn' })
-    expect(loginLink).toHaveAttribute('href', '/api/auth/login?returnUrl=%2Foversikt%3FeventId%3Devent-1')
+    expect(loginLink).toHaveAttribute('href', '/api/auth/login?returnUrl=%2Foversikt%2Fevent-1')
   })
 
   it('updates URL on tab click and syncs tab from popstate', async () => {
@@ -430,8 +448,8 @@ describe('App core flows', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Åpne event' }))
 
-    expect(window.location.pathname).toBe('/oversikt')
-    expect(window.location.search).toBe('?eventId=event-1')
+    expect(window.location.pathname).toBe('/oversikt/event-1')
+    expect(window.location.search).toBe('')
 
     await waitFor(() => {
       expect(getCallByMethodAndPath(fetchMock, 'GET', '/api/events/event-1')).toBeTruthy()
@@ -471,8 +489,8 @@ describe('App core flows', () => {
 
     expect(await screen.findByText('Du ble med i arrangementet.')).toBeInTheDocument()
     expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
-    expect(window.location.pathname).toBe('/oversikt')
-    expect(window.location.search).toBe('?eventId=event-1')
+    expect(window.location.pathname).toBe('/oversikt/event-1')
+    expect(window.location.search).toBe('')
   })
 
   it('loads workspace when event favorites endpoint returns 500', async () => {
@@ -553,8 +571,8 @@ describe('App core flows', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/oversikt')
-      expect(window.location.search).toBe('?eventId=event-1')
+      expect(window.location.pathname).toBe('/oversikt/event-1')
+      expect(window.location.search).toBe('')
     })
 
     const addButton = await screen.findByRole('button', { name: 'Lagre Pale Ale som favoritt' })
@@ -582,6 +600,9 @@ describe('App core flows', () => {
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([]) },
       { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
       { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
       { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
       { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
@@ -638,12 +659,11 @@ describe('App core flows', () => {
 
     const confirmMock = vi.fn(() => true)
     vi.stubGlobal('confirm', confirmMock)
-    window.history.pushState({}, '', '/oversikt?eventId=event-1')
+    window.history.pushState({}, '', '/oversikt/event-1')
 
     render(<App />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('button', { name: 'Slett arrangement' }))
 
     await waitFor(() => {

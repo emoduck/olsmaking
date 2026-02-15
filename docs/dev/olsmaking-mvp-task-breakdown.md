@@ -73,10 +73,10 @@ Provide a concrete, implementation-ready task list for the Olsmaking MVP based o
 35. [Done] Replace direct `setActiveTab` transitions with a shared navigation helper that updates both UI state and browser history.
 36. [Done] Add browser back/forward support (`popstate`) to keep rendered tab in sync with URL history.
 37. [Done] Add frontend tests for deep-link boot and history navigation across primary tab routes.
-38. [In progress] Implement Phase 2 event workspace deep-link handling using `/oversikt?eventId=<id>`.
+38. [In progress] Implement Phase 2 event workspace deep-link handling using `/oversikt/<eventId>`.
 39. [In progress] Add deep-link error handling for forbidden and not-found event using existing error feedback patterns.
 40. [In progress] Add integration checks for deep-link refresh and login return-url behavior to ensure post-auth return lands on the requested deep link.
-41. [In progress] Validate routing changes with frontend and host build matrix and update docs/dev references to mark routing phases complete.
+41. [In progress] Validate path-based deep-link routing with frontend and host build matrix and update docs/dev + ADR-007 references to mark routing phases complete.
 
 ## Definition of Done (MVP)
 - User can sign in/up via Auth0 and has persisted app profile.
