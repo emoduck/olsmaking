@@ -170,6 +170,7 @@ function App() {
   const [beerStyle, setBeerStyle] = useState('')
   const [beerAbv, setBeerAbv] = useState('')
   const [addBeerPending, setAddBeerPending] = useState(false)
+  const [isAddBeerFormOpen, setIsAddBeerFormOpen] = useState(false)
 
   const [reviewColorScore, setReviewColorScore] = useState(3)
   const [reviewSmellScore, setReviewSmellScore] = useState(3)
@@ -849,6 +850,10 @@ function App() {
     }
   }
 
+  function handleToggleBeerPanel(beerId: string) {
+    setSelectedBeerId((previous) => (previous === beerId ? '' : beerId))
+  }
+
   async function handleReviewSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFeedbackMessage(null)
@@ -1116,16 +1121,31 @@ function App() {
                   <ul className={styles.beerList}>
                     {beerList.map((beer) => (
                       <li key={beer.id} className={beer.id === selectedBeerId ? styles.beerRowActive : styles.beerRow}>
-                        <div className={styles.beerRowBody}>
-                          <p className={styles.eventName}>{beer.name}</p>
-                          <p className={styles.eventMeta}>
-                            {[beer.brewery, beer.style, beer.abv !== null ? `${beer.abv}%` : null]
-                              .filter(Boolean)
-                              .join(' · ') || 'Ingen detaljer'}
-                          </p>
-                          {favoriteBeerIdSet.has(beer.id) ? <p className={styles.favoriteMeta}>Favoritt</p> : null}
-                        </div>
-                        <div className={styles.beerActions}>
+                        <div className={styles.beerRowHeader}>
+                          <button
+                            type="button"
+                            className={styles.beerAccordionTrigger}
+                            id={`beer-review-trigger-${beer.id}`}
+                            aria-expanded={beer.id === selectedBeerId}
+                            aria-controls={`beer-review-panel-${beer.id}`}
+                            onClick={() => {
+                              handleToggleBeerPanel(beer.id)
+                            }}
+                          >
+                            <span className={styles.beerRowBody}>
+                              <span className={styles.eventName}>{beer.name}</span>
+                              <span className={styles.eventMeta}>
+                                {[beer.brewery, beer.style, beer.abv !== null ? `${beer.abv}%` : null]
+                                  .filter(Boolean)
+                                  .join(' · ') || 'Ingen detaljer'}
+                              </span>
+                              {favoriteBeerIdSet.has(beer.id) ? <span className={styles.favoriteMeta}>Favoritt</span> : null}
+                            </span>
+                            <span className={styles.beerAccordionHint}>
+                              {beer.id === selectedBeerId ? 'Skjul vurdering' : 'Vis vurdering'}
+                            </span>
+                          </button>
+
                           <button
                             type="button"
                             className={styles.favoriteButton}
@@ -1156,16 +1176,110 @@ function App() {
                             </svg>
                             {favoritePendingBeerIdSet.has(beer.id) ? <span className={styles.srOnly}>Lagrer...</span> : null}
                           </button>
-                          <button
-                            type="button"
-                            className={styles.buttonSecondary}
-                            onClick={() => {
-                              setSelectedBeerId(beer.id)
-                            }}
-                          >
-                            Velg
-                          </button>
                         </div>
+
+                        {beer.id === selectedBeerId ? (
+                          <div
+                            id={`beer-review-panel-${beer.id}`}
+                            className={styles.beerAccordionPanel}
+                            role="region"
+                            aria-labelledby={`beer-review-trigger-${beer.id}`}
+                          >
+                            <form className={styles.form} onSubmit={handleReviewSubmit}>
+                              <StarScoreSlider
+                                id="review-color-score"
+                                label="Farge"
+                                value={reviewColorScore}
+                                onChange={setReviewColorScore}
+                                disabled={reviewPending}
+                              />
+
+                              <StarScoreSlider
+                                id="review-smell-score"
+                                label="Lukt"
+                                value={reviewSmellScore}
+                                onChange={setReviewSmellScore}
+                                disabled={reviewPending}
+                              />
+
+                              <StarScoreSlider
+                                id="review-taste-score"
+                                label="Smak"
+                                value={reviewTasteScore}
+                                onChange={setReviewTasteScore}
+                                disabled={reviewPending}
+                              />
+
+                              <StarScoreSlider
+                                id="review-total-score"
+                                label="Total"
+                                value={reviewTotalScore}
+                                onChange={setReviewTotalScore}
+                                disabled={reviewPending}
+                              />
+
+                              <label className={styles.label} htmlFor="review-notes">
+                                Notater
+                              </label>
+                              <textarea
+                                id="review-notes"
+                                className={styles.textArea}
+                                value={reviewNotes}
+                                onChange={(event) => {
+                                  setReviewNotes(event.target.value)
+                                }}
+                                maxLength={2000}
+                                placeholder="Kort smaksvurdering"
+                              />
+
+                              <label className={styles.label} htmlFor="review-aroma-notes">
+                                Aroma (valgfritt)
+                              </label>
+                              <textarea
+                                id="review-aroma-notes"
+                                className={styles.textArea}
+                                value={reviewAromaNotes}
+                                onChange={(event) => {
+                                  setReviewAromaNotes(event.target.value)
+                                }}
+                                maxLength={2000}
+                                placeholder="Hva lukter du?"
+                              />
+
+                              <label className={styles.label} htmlFor="review-appearance-notes">
+                                Utseende (valgfritt)
+                              </label>
+                              <textarea
+                                id="review-appearance-notes"
+                                className={styles.textArea}
+                                value={reviewAppearanceNotes}
+                                onChange={(event) => {
+                                  setReviewAppearanceNotes(event.target.value)
+                                }}
+                                maxLength={2000}
+                                placeholder="Skum, farge og klarhet"
+                              />
+
+                              <label className={styles.label} htmlFor="review-flavor-notes">
+                                Smak (valgfritt)
+                              </label>
+                              <textarea
+                                id="review-flavor-notes"
+                                className={styles.textArea}
+                                value={reviewFlavorNotes}
+                                onChange={(event) => {
+                                  setReviewFlavorNotes(event.target.value)
+                                }}
+                                maxLength={2000}
+                                placeholder="Smaksnotater og avslutning"
+                              />
+
+                              <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
+                                {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
+                              </button>
+                            </form>
+                          </div>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -1173,169 +1287,93 @@ function App() {
                   <p className={styles.muted}>Ingen øl registrert ennå.</p>
                 )}
 
-                <form className={styles.form} onSubmit={handleAddBeer}>
-                  <label className={styles.label} htmlFor="beer-name">
-                    Navn på øl
-                  </label>
-                  <input
-                    id="beer-name"
-                    className={styles.input}
-                    value={beerName}
-                    onChange={(event) => {
-                      setBeerName(event.target.value)
+                <div className={styles.addBeerHeader}>
+                  <p className={styles.label}>Legg til øl</p>
+                  <button
+                    type="button"
+                    className={styles.addBeerToggle}
+                    aria-expanded={isAddBeerFormOpen}
+                    aria-controls="add-beer-form"
+                    aria-label={isAddBeerFormOpen ? 'Skjul legg til øl' : 'Vis legg til øl'}
+                    onClick={() => {
+                      setIsAddBeerFormOpen((previous) => !previous)
                     }}
-                    maxLength={200}
-                    placeholder="For eksempel Session IPA"
-                  />
-
-                  <label className={styles.label} htmlFor="beer-brewery">
-                    Bryggeri (valgfritt)
-                  </label>
-                  <input
-                    id="beer-brewery"
-                    className={styles.input}
-                    value={beerBrewery}
-                    onChange={(event) => {
-                      setBeerBrewery(event.target.value)
-                    }}
-                    maxLength={200}
-                  />
-
-                  <label className={styles.label} htmlFor="beer-style">
-                    Stil (valgfritt)
-                  </label>
-                  <input
-                    id="beer-style"
-                    className={styles.input}
-                    value={beerStyle}
-                    onChange={(event) => {
-                      setBeerStyle(event.target.value)
-                    }}
-                    maxLength={100}
-                  />
-
-                  <label className={styles.label} htmlFor="beer-abv">
-                    ABV (valgfritt)
-                  </label>
-                  <input
-                    id="beer-abv"
-                    className={styles.input}
-                    value={beerAbv}
-                    onChange={(event) => {
-                      setBeerAbv(event.target.value)
-                    }}
-                    inputMode="decimal"
-                    placeholder="For eksempel 5.2"
-                  />
-
-                  <button type="submit" className={styles.buttonPrimary} disabled={addBeerPending}>
-                    {addBeerPending ? 'Legger til...' : 'Legg til øl'}
+                  >
+                    {isAddBeerFormOpen ? (
+                      <svg className={styles.addBeerToggleIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M5 12H19" />
+                      </svg>
+                    ) : (
+                      <svg className={styles.addBeerToggleIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5V19M5 12H19" />
+                      </svg>
+                    )}
                   </button>
-                </form>
-              </section>
+                </div>
 
-              <section className={styles.panel}>
-                <h2 className={styles.sectionTitle}>Din vurdering</h2>
-                {selectedBeer ? (
-                  <form className={styles.form} onSubmit={handleReviewSubmit}>
-                    <p className={styles.eventMeta}>Valgt øl: {selectedBeer.name}</p>
-
-                    <StarScoreSlider
-                      id="review-color-score"
-                      label="Farge"
-                      value={reviewColorScore}
-                      onChange={setReviewColorScore}
-                      disabled={reviewPending}
-                    />
-
-                    <StarScoreSlider
-                      id="review-smell-score"
-                      label="Lukt"
-                      value={reviewSmellScore}
-                      onChange={setReviewSmellScore}
-                      disabled={reviewPending}
-                    />
-
-                    <StarScoreSlider
-                      id="review-taste-score"
-                      label="Smak"
-                      value={reviewTasteScore}
-                      onChange={setReviewTasteScore}
-                      disabled={reviewPending}
-                    />
-
-                    <StarScoreSlider
-                      id="review-total-score"
-                      label="Total"
-                      value={reviewTotalScore}
-                      onChange={setReviewTotalScore}
-                      disabled={reviewPending}
-                    />
-
-                    <label className={styles.label} htmlFor="review-notes">
-                      Notater
+                {isAddBeerFormOpen ? (
+                  <form id="add-beer-form" className={styles.form} onSubmit={handleAddBeer}>
+                    <label className={styles.label} htmlFor="beer-name">
+                      Navn på øl
                     </label>
-                    <textarea
-                      id="review-notes"
-                      className={styles.textArea}
-                      value={reviewNotes}
+                    <input
+                      id="beer-name"
+                      className={styles.input}
+                      value={beerName}
                       onChange={(event) => {
-                        setReviewNotes(event.target.value)
+                        setBeerName(event.target.value)
                       }}
-                      maxLength={2000}
-                      placeholder="Kort smaksvurdering"
+                      maxLength={200}
+                      placeholder="For eksempel Session IPA"
                     />
 
-                    <label className={styles.label} htmlFor="review-aroma-notes">
-                      Aroma (valgfritt)
+                    <label className={styles.label} htmlFor="beer-brewery">
+                      Bryggeri (valgfritt)
                     </label>
-                    <textarea
-                      id="review-aroma-notes"
-                      className={styles.textArea}
-                      value={reviewAromaNotes}
+                    <input
+                      id="beer-brewery"
+                      className={styles.input}
+                      value={beerBrewery}
                       onChange={(event) => {
-                        setReviewAromaNotes(event.target.value)
+                        setBeerBrewery(event.target.value)
                       }}
-                      maxLength={2000}
-                      placeholder="Hva lukter du?"
+                      maxLength={200}
                     />
 
-                    <label className={styles.label} htmlFor="review-appearance-notes">
-                      Utseende (valgfritt)
+                    <label className={styles.label} htmlFor="beer-style">
+                      Stil (valgfritt)
                     </label>
-                    <textarea
-                      id="review-appearance-notes"
-                      className={styles.textArea}
-                      value={reviewAppearanceNotes}
+                    <input
+                      id="beer-style"
+                      className={styles.input}
+                      value={beerStyle}
                       onChange={(event) => {
-                        setReviewAppearanceNotes(event.target.value)
+                        setBeerStyle(event.target.value)
                       }}
-                      maxLength={2000}
-                      placeholder="Skum, farge og klarhet"
+                      maxLength={100}
                     />
 
-                    <label className={styles.label} htmlFor="review-flavor-notes">
-                      Smak (valgfritt)
+                    <label className={styles.label} htmlFor="beer-abv">
+                      ABV (valgfritt)
                     </label>
-                    <textarea
-                      id="review-flavor-notes"
-                      className={styles.textArea}
-                      value={reviewFlavorNotes}
+                    <input
+                      id="beer-abv"
+                      className={styles.input}
+                      value={beerAbv}
                       onChange={(event) => {
-                        setReviewFlavorNotes(event.target.value)
+                        setBeerAbv(event.target.value)
                       }}
-                      maxLength={2000}
-                      placeholder="Smaksnotater og avslutning"
+                      inputMode="decimal"
+                      placeholder="For eksempel 5.2"
                     />
 
-                    <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
-                      {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
+                    <button type="submit" className={styles.buttonPrimary} disabled={addBeerPending}>
+                      {addBeerPending ? 'Legger til...' : 'Legg til øl'}
                     </button>
                   </form>
-                ) : (
-                  <p className={styles.muted}>Velg en øl for å registrere vurdering.</p>
-                )}
+                ) : null}
               </section>
+
             </>
           ) : null}
         </>

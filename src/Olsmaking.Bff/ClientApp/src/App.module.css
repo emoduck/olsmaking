@@ -367,9 +367,7 @@
 
 .beerRow,
 .beerRowActive {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
   gap: var(--space-12);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-8);
@@ -383,12 +381,85 @@
 
 .beerRowBody {
   min-width: 0;
+  display: grid;
 }
 
-.beerActions {
-  display: grid;
+.beerRowHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--space-8);
-  justify-items: end;
+}
+
+.beerAccordionTrigger {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-12);
+  cursor: pointer;
+}
+
+.beerAccordionTrigger:focus-visible {
+  outline: 2px solid var(--color-primary-200);
+  outline-offset: 2px;
+  border-radius: var(--radius-8);
+}
+
+.beerAccordionHint {
+  margin-top: 2px;
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.beerAccordionPanel {
+  border-top: 1px solid var(--color-border-default);
+  padding-top: var(--space-12);
+}
+
+.addBeerHeader {
+  margin-top: var(--space-12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.addBeerToggle {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-8);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.addBeerToggleIcon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.addBeerToggle:focus-visible {
+  outline: 2px solid var(--color-primary-200);
+  outline-offset: 1px;
 }
 
 .favoriteMeta {

@@ -172,6 +172,19 @@ const beers = [
   },
 ]
 
+const beersWithTwoEntries = [
+  ...beers,
+  {
+    id: 'beer-2',
+    eventId: 'event-1',
+    name: 'Amber Lager',
+    brewery: 'Bryggeri 2',
+    style: 'Lager',
+    abv: 4.8,
+    createdUtc: '2026-01-01T10:40:00Z',
+  },
+]
+
 const favorites = [
   {
     eventId: 'event-1',
@@ -820,5 +833,107 @@ describe('App core flows', () => {
         flavorNotes: 'Frisk avslutning',
       }),
     )
+  })
+
+  it('allows zero-open beer accordion with max one panel open', async () => {
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beersWithTwoEntries) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        url: '/api/events/event-1/beers/beer-2/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    expect(await screen.findByRole('button', { name: /Pale Ale[\s\S]*Skjul vurdering/i })).toBeInTheDocument()
+    expect(document.getElementById('beer-review-panel-beer-1')).toBeInTheDocument()
+    expect(document.getElementById('beer-review-panel-beer-2')).not.toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Amber Lager[\s\S]*Vis vurdering/i }))
+
+    await waitFor(() => {
+      expect(document.getElementById('beer-review-panel-beer-1')).not.toBeInTheDocument()
+      expect(document.getElementById('beer-review-panel-beer-2')).toBeInTheDocument()
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /Amber Lager[\s\S]*Skjul vurdering/i }))
+
+    await waitFor(() => {
+      expect(document.getElementById('beer-review-panel-beer-1')).not.toBeInTheDocument()
+      expect(document.getElementById('beer-review-panel-beer-2')).not.toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('button', { name: 'Lagre vurdering' })).not.toBeInTheDocument()
+  })
+
+  it('toggles add beer form with + and X and keeps it open after add', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'POST',
+        url: '/api/events/event-1/beers',
+        response: jsonResponse({
+          id: 'beer-2',
+          eventId: 'event-1',
+          name: 'New IPA',
+          brewery: null,
+          style: null,
+          abv: null,
+          createdUtc: '2026-01-01T11:00:00Z',
+        }),
+      },
+      {
+        url: '/api/events/event-1/beers/beer-2/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    expect(screen.queryByLabelText('Navn på øl')).not.toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis legg til øl' }))
+
+    expect(await screen.findByLabelText('Navn på øl')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Skjul legg til øl' }))
+    expect(screen.queryByLabelText('Navn på øl')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Vis legg til øl' }))
+    fireEvent.change(await screen.findByLabelText('Navn på øl'), { target: { value: 'New IPA' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Legg til øl' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/beers')).toBeTruthy()
+    })
+
+    expect(await screen.findByRole('button', { name: 'Skjul legg til øl' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Navn på øl')).toHaveValue('')
   })
 })
