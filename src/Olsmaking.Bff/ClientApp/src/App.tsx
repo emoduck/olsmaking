@@ -147,7 +147,6 @@ function App() {
   const [overviewFilter, setOverviewFilter] = useState<OverviewFilter>('mine')
   const [favoriteList, setFavoriteList] = useState<FavoriteBeerSummary[]>([])
   const [favoritesPending, setFavoritesPending] = useState(false)
-  const [favoritesHydrated, setFavoritesHydrated] = useState(false)
   const [profileNickname, setProfileNickname] = useState('')
   const [profilePending, setProfilePending] = useState(false)
   const [isLargeScreen, setIsLargeScreen] = useState(() =>
@@ -590,7 +589,6 @@ function App() {
         setMyEventList(myEvents)
         setOpenEventList(openEvents.filter((item) => !myEvents.some((myEvent) => myEvent.id === item.id)))
         setFavoriteList(favorites)
-        setFavoritesHydrated(true)
         setAuthState('authenticated')
       } catch (error) {
         if (!isMounted) {
@@ -617,7 +615,7 @@ function App() {
   useEffect(() => {
     let isMounted = true
 
-    if (activeTab !== 'favoritter' || favoritesHydrated || favoritesPending) {
+    if (authState !== 'authenticated' || activeTab !== 'favoritter' || favoritesPending) {
       return () => {
         isMounted = false
       }
@@ -633,7 +631,6 @@ function App() {
         }
 
         setFavoriteList(favorites)
-        setFavoritesHydrated(true)
       } catch (error) {
         if (!isMounted) {
           return
@@ -650,7 +647,7 @@ function App() {
     return () => {
       isMounted = false
     }
-  }, [activeTab, favoritesHydrated, favoritesPending])
+  }, [activeTab, authState])
 
   useEffect(() => {
     setProfileNickname(user?.nickname ?? '')
@@ -791,14 +788,13 @@ function App() {
     }
   }
 
-  async function handleOpenFavoriteWorkspace(eventId: string, eventName: string) {
+  async function handleOpenFavoriteWorkspace(eventId: string) {
     setFeedbackMessage(null)
     setErrorMessage(null)
     navigateToTab('oversikt', { eventId })
 
     try {
       await loadEventWorkspace(eventId)
-      setFeedbackMessage(`Arbeidsflate apnet for ${eventName}.`)
     } catch (error) {
       setErrorMessage(getApiMessage(error))
     }
@@ -1132,7 +1128,7 @@ function App() {
                         <div className={styles.beerActions}>
                           <button
                             type="button"
-                            className={styles.buttonSecondary}
+                            className={styles.favoriteButton}
                             onClick={() => {
                               void handleToggleFavorite(beer.id, beer.name)
                             }}
@@ -1142,12 +1138,23 @@ function App() {
                                 ? `Fjern favoritt for ${beer.name}`
                                 : `Lagre ${beer.name} som favoritt`
                             }
+                            aria-pressed={favoriteBeerIdSet.has(beer.id)}
+                            aria-busy={favoritePendingBeerIdSet.has(beer.id)}
+                            title={
+                              favoriteBeerIdSet.has(beer.id)
+                                ? 'Markert som favoritt'
+                                : 'Ikke markert som favoritt'
+                            }
                           >
-                            {favoritePendingBeerIdSet.has(beer.id)
-                              ? 'Lagrer...'
-                              : favoriteBeerIdSet.has(beer.id)
-                                ? 'Fjern favoritt'
-                                : 'Lagre favoritt'}
+                            <svg
+                              className={styles.favoriteIcon}
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              focusable="false"
+                            >
+                              <path d="M12 21.35 10.55 20.03C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A5.96 5.96 0 0 1 16.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z" />
+                            </svg>
+                            {favoritePendingBeerIdSet.has(beer.id) ? <span className={styles.srOnly}>Lagrer...</span> : null}
                           </button>
                           <button
                             type="button"
@@ -1335,7 +1342,8 @@ function App() {
       ) : activeTab === 'favoritter' ? (
         <section className={styles.panel}>
           <h2 className={styles.sectionTitle}>Favoritter</h2>
-          {favoritesPending ? (
+          {favoritesPending && favoriteList.length ? <p className={styles.refreshHint}>Oppdaterer favoritter...</p> : null}
+          {favoritesPending && !favoriteList.length ? (
             <p className={styles.muted}>Laster favoritter...</p>
           ) : favoriteList.length ? (
             <ul className={styles.favoriteList}>
@@ -1355,10 +1363,10 @@ function App() {
                     type="button"
                     className={styles.buttonSecondary}
                     onClick={() => {
-                      void handleOpenFavoriteWorkspace(favorite.eventId, favorite.eventName)
+                      void handleOpenFavoriteWorkspace(favorite.eventId)
                     }}
                   >
-                    Åpen arbeidsflate
+                    Åpne event
                   </button>
                 </li>
               ))}

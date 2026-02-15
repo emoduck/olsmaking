@@ -313,6 +313,7 @@ describe('App core flows', () => {
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([openEvent]) },
       { url: '/api/favorites/mine', response: jsonResponse(favorites) },
+      { url: '/api/favorites/mine', response: jsonResponse(favorites) },
     ])
 
     render(<App />)
@@ -321,7 +322,23 @@ describe('App core flows', () => {
 
     expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
     expect(screen.getByText('Arrangement: Min smaking')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Åpen arbeidsflate' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Åpne event' })).toBeInTheDocument()
+  })
+
+  it('refreshes favorites when opening favorites tab after initial hydrate', async () => {
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse(favorites) },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
+
+    expect(await screen.findByText('Pale Ale')).toBeInTheDocument()
   })
 
   it('renders profile tab with read-only email and prefilled nickname', async () => {
@@ -385,6 +402,7 @@ describe('App core flows', () => {
       { url: '/api/events/mine', response: jsonResponse([myEvent]) },
       { url: '/api/events/open', response: jsonResponse([openEvent]) },
       { url: '/api/favorites/mine', response: jsonResponse(favorites) },
+      { url: '/api/favorites/mine', response: jsonResponse(favorites) },
       { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
       { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
       { url: '/api/events/event-1/favorites/me', response: jsonResponse(['beer-1']) },
@@ -397,7 +415,7 @@ describe('App core flows', () => {
     render(<App />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Åpen arbeidsflate' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Åpne event' }))
 
     expect(window.location.pathname).toBe('/oversikt')
     expect(window.location.search).toBe('?eventId=event-1')
@@ -527,17 +545,22 @@ describe('App core flows', () => {
     })
 
     const addButton = await screen.findByRole('button', { name: 'Lagre Pale Ale som favoritt' })
+    expect(addButton).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(addButton)
 
     await waitFor(() => {
       expect(getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/beers/beer-1/favorite')).toBeTruthy()
     })
 
+    expect(await screen.findByRole('button', { name: 'Fjern favoritt for Pale Ale' })).toHaveAttribute('aria-pressed', 'true')
+
     fireEvent.click(await screen.findByRole('button', { name: 'Fjern favoritt for Pale Ale' }))
 
     await waitFor(() => {
       expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1/beers/beer-1/favorite')).toBeTruthy()
     })
+
+    expect(await screen.findByRole('button', { name: 'Lagre Pale Ale som favoritt' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('lets owner close event via status endpoint', async () => {

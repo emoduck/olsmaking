@@ -17,8 +17,11 @@ Add event workspace support for marking beers as favorites so users can quickly 
 
 ## UI / Behavior Notes
 - Beer rows show a `Favoritt` status label when a beer is currently favorited.
-- Each beer row exposes a favorite toggle button with accessible `aria-label` text.
-- Favorite toggles show pending state (`Lagrer...`) and success/error feedback via existing app messages.
+- Each beer row exposes an icon-only heart toggle button with accessible `aria-label` text.
+- Heart icon states:
+  - Not favorited: neutral gray heart aligned with existing surface/border palette.
+  - Favorited: warm red heart with subtle warm red background/border tint.
+- Favorite toggles show pending state (`aria-busy` + disabled interaction) and success/error feedback via existing app messages.
 - Favorites are refreshed from backend each time a new event workspace is loaded.
 
 ## Backend / API Impact
