@@ -71,9 +71,8 @@ npm install --prefix src/Olsmaking.Bff/ClientApp
 dotnet run --project src/Olsmaking.Bff/Olsmaking.Bff.csproj
 ```
 
-Backend URLs:
+Backend URL (default):
 - `http://localhost:5287`
-- `https://localhost:7006`
 
 Backend health check:
 - `http://localhost:5287/api/health`
@@ -90,18 +89,15 @@ Open the frontend at:
 Note:
 - The frontend runs on Vite (`5173`) and proxies `/api`, `/signin-oidc`, and `/signout-callback-oidc` to the BFF host (`5287`). Keep the backend process running while developing.
 
-### Single-host local mode (.NET serves built frontend)
+### Backend notes in dev mode
 
-Use this when you want to run the app as one host without Vite.
+- `http://localhost:5287/api/health` should return `200 OK` when the backend is running.
+- `http://localhost:5287/` may return `404 Not Found` in local development. This process hosts API/auth endpoints while UI development runs from Vite (`http://localhost:5173`).
+- `https://localhost:7006` is available only when running with the HTTPS launch profile:
 
 ```bash
-npm run build --prefix src/Olsmaking.Bff/ClientApp
-dotnet run --project src/Olsmaking.Bff/Olsmaking.Bff.csproj
+dotnet run --launch-profile https --project src/Olsmaking.Bff/Olsmaking.Bff.csproj
 ```
-
-Open the app at:
-- `http://localhost:5287`
-- `https://localhost:7006`
 
 ### Optional: Storybook
 
