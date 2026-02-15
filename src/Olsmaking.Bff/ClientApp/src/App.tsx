@@ -28,6 +28,7 @@ import {
   type EventSummary,
   type FavoriteBeerSummary,
 } from './api/client'
+import { StarScoreSlider } from './components/StarScoreSlider'
 import styles from './App.module.css'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
@@ -108,7 +109,10 @@ function App() {
   const [beerAbv, setBeerAbv] = useState('')
   const [addBeerPending, setAddBeerPending] = useState(false)
 
-  const [reviewRating, setReviewRating] = useState(3)
+  const [reviewColorScore, setReviewColorScore] = useState(3)
+  const [reviewSmellScore, setReviewSmellScore] = useState(3)
+  const [reviewTasteScore, setReviewTasteScore] = useState(3)
+  const [reviewTotalScore, setReviewTotalScore] = useState(3)
   const [reviewNotes, setReviewNotes] = useState('')
   const [reviewAromaNotes, setReviewAromaNotes] = useState('')
   const [reviewAppearanceNotes, setReviewAppearanceNotes] = useState('')
@@ -152,7 +156,10 @@ function App() {
     let isActive = true
 
     if (!selectedEventId || !selectedBeerReviewId) {
-      setReviewRating(3)
+      setReviewColorScore(3)
+      setReviewSmellScore(3)
+      setReviewTasteScore(3)
+      setReviewTotalScore(3)
       setReviewNotes('')
       setReviewAromaNotes('')
       setReviewAppearanceNotes('')
@@ -170,7 +177,10 @@ function App() {
           return
         }
 
-        setReviewRating(review.rating)
+        setReviewColorScore(review.colorScore)
+        setReviewSmellScore(review.smellScore)
+        setReviewTasteScore(review.tasteScore)
+        setReviewTotalScore(review.totalScore)
         setReviewNotes(review.notes ?? '')
         setReviewAromaNotes(review.aromaNotes ?? '')
         setReviewAppearanceNotes(review.appearanceNotes ?? '')
@@ -181,7 +191,10 @@ function App() {
         }
 
         if (error instanceof ApiClientError && error.status === 404) {
-          setReviewRating(3)
+          setReviewColorScore(3)
+          setReviewSmellScore(3)
+          setReviewTasteScore(3)
+          setReviewTotalScore(3)
           setReviewNotes('')
           setReviewAromaNotes('')
           setReviewAppearanceNotes('')
@@ -189,7 +202,10 @@ function App() {
           return
         }
 
-        setReviewRating(3)
+        setReviewColorScore(3)
+        setReviewSmellScore(3)
+        setReviewTasteScore(3)
+        setReviewTotalScore(3)
         setReviewNotes('')
         setReviewAromaNotes('')
         setReviewAppearanceNotes('')
@@ -561,7 +577,10 @@ function App() {
     }
 
     const payload = {
-      rating: reviewRating,
+      colorScore: reviewColorScore,
+      smellScore: reviewSmellScore,
+      tasteScore: reviewTasteScore,
+      totalScore: reviewTotalScore,
       notes: trimOptional(reviewNotes),
       aromaNotes: trimOptional(reviewAromaNotes),
       appearanceNotes: trimOptional(reviewAppearanceNotes),
@@ -928,22 +947,37 @@ function App() {
                   <form className={styles.form} onSubmit={handleReviewSubmit}>
                     <p className={styles.eventMeta}>Valgt øl: {selectedBeer.name}</p>
 
-                    <label className={styles.label} htmlFor="review-rating">
-                      Poeng: {reviewRating} / 6
-                    </label>
-                    <input
-                      id="review-rating"
-                      className={styles.rangeInput}
-                      type="range"
-                      min={1}
-                      max={6}
-                      step={1}
-                      value={reviewRating}
-                      onChange={(event) => {
-                        setReviewRating(Number(event.target.value))
-                      }}
+                    <StarScoreSlider
+                      id="review-color-score"
+                      label="Farge"
+                      value={reviewColorScore}
+                      onChange={setReviewColorScore}
+                      disabled={reviewPending}
                     />
-                    <p className={styles.muted}>Flytt slideren for å velge poeng fra 1 til 6.</p>
+
+                    <StarScoreSlider
+                      id="review-smell-score"
+                      label="Lukt"
+                      value={reviewSmellScore}
+                      onChange={setReviewSmellScore}
+                      disabled={reviewPending}
+                    />
+
+                    <StarScoreSlider
+                      id="review-taste-score"
+                      label="Smak"
+                      value={reviewTasteScore}
+                      onChange={setReviewTasteScore}
+                      disabled={reviewPending}
+                    />
+
+                    <StarScoreSlider
+                      id="review-total-score"
+                      label="Total"
+                      value={reviewTotalScore}
+                      onChange={setReviewTotalScore}
+                      disabled={reviewPending}
+                    />
 
                     <label className={styles.label} htmlFor="review-notes">
                       Notater

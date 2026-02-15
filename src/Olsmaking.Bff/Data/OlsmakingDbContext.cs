@@ -101,13 +101,21 @@ public sealed class OlsmakingDbContext(DbContextOptions<OlsmakingDbContext> opti
         modelBuilder.Entity<BeerReview>(entity =>
         {
             entity.ToTable("BeerReviews", table =>
-                table.HasCheckConstraint("CK_BeerReviews_Rating", "[Rating] >= 1 AND [Rating] <= 6"));
+            {
+                table.HasCheckConstraint("CK_BeerReviews_ColorScore", "[ColorScore] >= 1 AND [ColorScore] <= 6");
+                table.HasCheckConstraint("CK_BeerReviews_SmellScore", "[SmellScore] >= 1 AND [SmellScore] <= 6");
+                table.HasCheckConstraint("CK_BeerReviews_TasteScore", "[TasteScore] >= 1 AND [TasteScore] <= 6");
+                table.HasCheckConstraint("CK_BeerReviews_TotalScore", "[TotalScore] >= 1 AND [TotalScore] <= 6");
+            });
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Id).ValueGeneratedNever();
             entity.Property(x => x.EventId).IsRequired();
             entity.Property(x => x.BeerId).IsRequired();
             entity.Property(x => x.UserId).IsRequired();
-            entity.Property(x => x.Rating).IsRequired();
+            entity.Property(x => x.ColorScore).IsRequired();
+            entity.Property(x => x.SmellScore).IsRequired();
+            entity.Property(x => x.TasteScore).IsRequired();
+            entity.Property(x => x.TotalScore).IsRequired();
             entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.Property(x => x.AromaNotes).HasMaxLength(1000);
             entity.Property(x => x.AppearanceNotes).HasMaxLength(1000);

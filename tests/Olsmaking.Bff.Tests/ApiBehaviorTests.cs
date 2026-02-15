@@ -625,7 +625,10 @@ public sealed class ApiBehaviorTests
             "member-sub",
             new
             {
-                rating = 5,
+                colorScore = 5,
+                smellScore = 5,
+                tasteScore = 5,
+                totalScore = 5,
                 notes = "Blocked before join",
             });
 
@@ -650,8 +653,11 @@ public sealed class ApiBehaviorTests
             "member-sub",
             new
             {
-                rating = 0,
-                notes = "Invalid rating",
+                colorScore = 5,
+                smellScore = 5,
+                tasteScore = 5,
+                totalScore = 0,
+                notes = "Invalid total score",
             });
 
         Assert.Equal(HttpStatusCode.BadRequest, invalidReviewResponse.StatusCode);
@@ -1149,9 +1155,9 @@ public sealed class ApiBehaviorTests
 
             await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
                 INSERT INTO BeerReviews
-                (Id, EventId, BeerId, UserId, Rating, Notes, AromaNotes, AppearanceNotes, FlavorNotes, CreatedUtc, UpdatedUtc, RowVersion)
+                (Id, EventId, BeerId, UserId, ColorScore, SmellScore, TasteScore, TotalScore, Notes, AromaNotes, AppearanceNotes, FlavorNotes, CreatedUtc, UpdatedUtc, RowVersion)
                 VALUES
-                ({reviewId}, {eventId}, {beerId}, {ownerUserId}, {5}, {"Fresh and crisp"}, {null}, {null}, {null}, {now}, {now}, X'01')
+                ({reviewId}, {eventId}, {beerId}, {ownerUserId}, {5}, {5}, {5}, {5}, {"Fresh and crisp"}, {null}, {null}, {null}, {now}, {now}, X'01')
                 """);
         }
 
@@ -1166,7 +1172,10 @@ public sealed class ApiBehaviorTests
 
         Assert.Equal(eventId, reviewPayload.GetProperty("eventId").GetGuid());
         Assert.Equal(beerId, reviewPayload.GetProperty("beerId").GetGuid());
-        Assert.Equal(5, reviewPayload.GetProperty("rating").GetInt32());
+        Assert.Equal(5, reviewPayload.GetProperty("colorScore").GetInt32());
+        Assert.Equal(5, reviewPayload.GetProperty("smellScore").GetInt32());
+        Assert.Equal(5, reviewPayload.GetProperty("tasteScore").GetInt32());
+        Assert.Equal(5, reviewPayload.GetProperty("totalScore").GetInt32());
         Assert.Equal("Fresh and crisp", reviewPayload.GetProperty("notes").GetString());
         Assert.True(reviewPayload.TryGetProperty("id", out _));
         Assert.True(reviewPayload.TryGetProperty("userId", out _));

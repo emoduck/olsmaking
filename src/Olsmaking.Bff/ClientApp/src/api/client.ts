@@ -86,7 +86,10 @@ export interface BeerReview {
   eventId: string
   beerId: string
   userId: string
-  rating: number
+  colorScore: number
+  smellScore: number
+  tasteScore: number
+  totalScore: number
   notes: string | null
   aromaNotes: string | null
   appearanceNotes: string | null
@@ -103,7 +106,10 @@ export interface CreateEventBeerRequest {
 }
 
 export interface UpsertBeerReviewRequest {
-  rating: number
+  colorScore: number
+  smellScore: number
+  tasteScore: number
+  totalScore: number
   notes?: string | null
   aromaNotes?: string | null
   appearanceNotes?: string | null

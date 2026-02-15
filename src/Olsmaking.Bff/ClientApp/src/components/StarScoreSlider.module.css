@@ -1,0 +1,62 @@
+.root {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.label {
+  font-size: var(--font-size-14);
+  color: var(--color-text-secondary);
+}
+
+.track {
+  display: inline-flex;
+  gap: var(--space-6);
+}
+
+.starButton,
+.starButtonActive {
+  min-height: 44px;
+  min-width: 44px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-8);
+  background: var(--color-bg-surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.starButtonActive {
+  border-color: var(--color-primary-600);
+  background: var(--color-primary-50);
+}
+
+.starButton:disabled,
+.starButtonActive:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.starButton:focus-visible,
+.starButtonActive:focus-visible {
+  outline: 2px solid var(--color-primary-200);
+  outline-offset: 1px;
+}
+
+.starIcon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.starOutline {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.6;
+}
+
+.starFill {
+  fill: var(--color-primary-600);
+  stroke: var(--color-primary-700);
+  stroke-width: 1.4;
+}

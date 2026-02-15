@@ -503,7 +503,10 @@ describe('App core flows', () => {
           eventId: 'event-1',
           beerId: 'beer-1',
           userId: 'user-1',
-          rating: 5,
+          colorScore: 5,
+          smellScore: 5,
+          tasteScore: 5,
+          totalScore: 5,
           notes: 'God balanse',
           aromaNotes: 'Sitrus',
           appearanceNotes: 'Gylden',
@@ -519,7 +522,10 @@ describe('App core flows', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
-    fireEvent.change(await screen.findByLabelText('Poeng: 3 / 6'), { target: { value: '5' } })
+    fireEvent.click(await screen.findByRole('radio', { name: 'Farge 5 av 6' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Lukt 5 av 6' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Smak 5 av 6' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Total 5 av 6' }))
     fireEvent.change(screen.getByLabelText('Notater'), { target: { value: 'God balanse' } })
     fireEvent.change(screen.getByLabelText('Aroma (valgfritt)'), { target: { value: 'Sitrus' } })
     fireEvent.change(screen.getByLabelText('Utseende (valgfritt)'), { target: { value: 'Gylden' } })
@@ -539,7 +545,10 @@ describe('App core flows', () => {
 
     expect(patchBody).toBe(
       JSON.stringify({
-        rating: 5,
+        colorScore: 5,
+        smellScore: 5,
+        tasteScore: 5,
+        totalScore: 5,
         notes: 'God balanse',
         aromaNotes: 'Sitrus',
         appearanceNotes: 'Gylden',
@@ -548,7 +557,10 @@ describe('App core flows', () => {
     )
     expect(postBody).toBe(
       JSON.stringify({
-        rating: 5,
+        colorScore: 5,
+        smellScore: 5,
+        tasteScore: 5,
+        totalScore: 5,
         notes: 'God balanse',
         aromaNotes: 'Sitrus',
         appearanceNotes: 'Gylden',

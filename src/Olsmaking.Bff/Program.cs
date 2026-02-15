@@ -791,12 +791,31 @@ if (auth0Settings.IsConfigured)
                 detail: "This event is closed, so members cannot create or update reviews.");
         }
 
-        if (request.Rating is null or < 1 or > 6)
+        var createErrors = new Dictionary<string, string[]>();
+
+        if (!IsValidScore(request.ColorScore))
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["rating"] = ["Rating must be an integer between 1 and 6."],
-            });
+            createErrors["colorScore"] = ["Color score must be an integer between 1 and 6."];
+        }
+
+        if (!IsValidScore(request.SmellScore))
+        {
+            createErrors["smellScore"] = ["Smell score must be an integer between 1 and 6."];
+        }
+
+        if (!IsValidScore(request.TasteScore))
+        {
+            createErrors["tasteScore"] = ["Taste score must be an integer between 1 and 6."];
+        }
+
+        if (!IsValidScore(request.TotalScore))
+        {
+            createErrors["totalScore"] = ["Total score must be an integer between 1 and 6."];
+        }
+
+        if (createErrors.Count > 0)
+        {
+            return Results.ValidationProblem(createErrors);
         }
 
         var beerExists = await dbContext.EventBeers
@@ -814,7 +833,10 @@ if (auth0Settings.IsConfigured)
             EventId = eventId,
             BeerId = beerId,
             UserId = currentUser.Id,
-            Rating = request.Rating.Value,
+            ColorScore = request.ColorScore!.Value,
+            SmellScore = request.SmellScore!.Value,
+            TasteScore = request.TasteScore!.Value,
+            TotalScore = request.TotalScore!.Value,
             Notes = NormalizeOptionalText(request.Notes),
             AromaNotes = NormalizeOptionalText(request.AromaNotes),
             AppearanceNotes = NormalizeOptionalText(request.AppearanceNotes),
@@ -852,7 +874,10 @@ if (auth0Settings.IsConfigured)
             EventId = review.EventId,
             BeerId = review.BeerId,
             UserId = review.UserId,
-            Rating = review.Rating,
+            ColorScore = review.ColorScore,
+            SmellScore = review.SmellScore,
+            TasteScore = review.TasteScore,
+            TotalScore = review.TotalScore,
             Notes = review.Notes,
             AromaNotes = review.AromaNotes,
             AppearanceNotes = review.AppearanceNotes,
@@ -903,7 +928,10 @@ if (auth0Settings.IsConfigured)
             EventId = review.EventId,
             BeerId = review.BeerId,
             UserId = review.UserId,
-            Rating = review.Rating,
+            ColorScore = review.ColorScore,
+            SmellScore = review.SmellScore,
+            TasteScore = review.TasteScore,
+            TotalScore = review.TotalScore,
             Notes = review.Notes,
             AromaNotes = review.AromaNotes,
             AppearanceNotes = review.AppearanceNotes,
@@ -966,22 +994,10 @@ if (auth0Settings.IsConfigured)
         var errors = new Dictionary<string, string[]>();
         var changed = false;
 
-        if (requestBody.TryGetProperty("rating", out var ratingElement))
-        {
-            if (ratingElement.ValueKind == JsonValueKind.Null)
-            {
-                errors["rating"] = ["Rating must be an integer between 1 and 6."];
-            }
-            else if (!ratingElement.TryGetInt32(out var rating) || rating is < 1 or > 6)
-            {
-                errors["rating"] = ["Rating must be an integer between 1 and 6."];
-            }
-            else if (review.Rating != rating)
-            {
-                review.Rating = rating;
-                changed = true;
-            }
-        }
+        changed |= TryApplyScorePatch(requestBody, "colorScore", value => review.ColorScore = value, review.ColorScore, errors, "Color score must be an integer between 1 and 6.");
+        changed |= TryApplyScorePatch(requestBody, "smellScore", value => review.SmellScore = value, review.SmellScore, errors, "Smell score must be an integer between 1 and 6.");
+        changed |= TryApplyScorePatch(requestBody, "tasteScore", value => review.TasteScore = value, review.TasteScore, errors, "Taste score must be an integer between 1 and 6.");
+        changed |= TryApplyScorePatch(requestBody, "totalScore", value => review.TotalScore = value, review.TotalScore, errors, "Total score must be an integer between 1 and 6.");
 
         changed |= TryApplyNullableTextPatch(requestBody, "notes", value => review.Notes = value, review.Notes, errors);
         changed |= TryApplyNullableTextPatch(requestBody, "aromaNotes", value => review.AromaNotes = value, review.AromaNotes, errors);
@@ -1005,7 +1021,10 @@ if (auth0Settings.IsConfigured)
             EventId = review.EventId,
             BeerId = review.BeerId,
             UserId = review.UserId,
-            Rating = review.Rating,
+            ColorScore = review.ColorScore,
+            SmellScore = review.SmellScore,
+            TasteScore = review.TasteScore,
+            TotalScore = review.TotalScore,
             Notes = review.Notes,
             AromaNotes = review.AromaNotes,
             AppearanceNotes = review.AppearanceNotes,
@@ -1458,6 +1477,39 @@ static string? NormalizeOptionalText(string? value)
         : value.Trim();
 }
 
+static bool IsValidScore(int? score)
+{
+    return score is >= 1 and <= 6;
+}
+
+static bool TryApplyScorePatch(
+    JsonElement requestBody,
+    string propertyName,
+    Action<int> assign,
+    int currentValue,
+    Dictionary<string, string[]> errors,
+    string validationMessage)
+{
+    if (!requestBody.TryGetProperty(propertyName, out var propertyValue))
+    {
+        return false;
+    }
+
+    if (!propertyValue.TryGetInt32(out var nextValue) || nextValue is < 1 or > 6)
+    {
+        errors[propertyName] = [validationMessage];
+        return false;
+    }
+
+    if (nextValue == currentValue)
+    {
+        return false;
+    }
+
+    assign(nextValue);
+    return true;
+}
+
 static bool TryApplyNullableTextPatch(
     JsonElement requestBody,
     string propertyName,
@@ -1507,7 +1559,15 @@ internal sealed record JoinEventRequest(string? JoinCode);
 
 internal sealed record CreateEventBeerRequest(string? Name, string? Brewery, string? Style, decimal? Abv);
 
-internal sealed record CreateBeerReviewRequest(int? Rating, string? Notes, string? AromaNotes, string? AppearanceNotes, string? FlavorNotes);
+internal sealed record CreateBeerReviewRequest(
+    int? ColorScore,
+    int? SmellScore,
+    int? TasteScore,
+    int? TotalScore,
+    string? Notes,
+    string? AromaNotes,
+    string? AppearanceNotes,
+    string? FlavorNotes);
 
 internal sealed record UpdateEventStatusRequest(string? Status);
 

@@ -10,7 +10,13 @@ public sealed class BeerReview
 
     public Guid UserId { get; set; }
 
-    public int Rating { get; set; }
+    public int ColorScore { get; set; }
+
+    public int SmellScore { get; set; }
+
+    public int TasteScore { get; set; }
+
+    public int TotalScore { get; set; }
 
     public string? Notes { get; set; }
 
