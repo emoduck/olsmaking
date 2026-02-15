@@ -241,19 +241,22 @@ function App() {
   const [reviewFlavorNotes, setReviewFlavorNotes] = useState('')
   const [reviewPending, setReviewPending] = useState(false)
   const [reviewBaseline, setReviewBaseline] = useState<UpsertBeerReviewRequest | null>(null)
+  const [reviewExists, setReviewExists] = useState(false)
   const reviewDirty = useMemo(() => {
     if (!reviewBaseline) {
       return false
     }
 
+    const normalizeNotes = (value?: string | null) => (value ?? '').trim()
+
     return reviewBaseline.colorScore !== reviewColorScore
       || reviewBaseline.smellScore !== reviewSmellScore
       || reviewBaseline.tasteScore !== reviewTasteScore
       || reviewBaseline.totalScore !== reviewTotalScore
-      || (reviewBaseline.notes ?? '') !== trimOptional(reviewNotes)
-      || (reviewBaseline.aromaNotes ?? '') !== trimOptional(reviewAromaNotes)
-      || (reviewBaseline.appearanceNotes ?? '') !== trimOptional(reviewAppearanceNotes)
-      || (reviewBaseline.flavorNotes ?? '') !== trimOptional(reviewFlavorNotes)
+      || normalizeNotes(reviewBaseline.notes) !== normalizeNotes(reviewNotes)
+      || normalizeNotes(reviewBaseline.aromaNotes) !== normalizeNotes(reviewAromaNotes)
+      || normalizeNotes(reviewBaseline.appearanceNotes) !== normalizeNotes(reviewAppearanceNotes)
+      || normalizeNotes(reviewBaseline.flavorNotes) !== normalizeNotes(reviewFlavorNotes)
   }, [
     reviewBaseline,
     reviewColorScore,
@@ -438,6 +441,7 @@ function App() {
       setReviewAromaNotes('')
       setReviewAppearanceNotes('')
       setReviewFlavorNotes('')
+      setReviewExists(false)
       setReviewBaseline({
         colorScore: 3,
         smellScore: 3,
@@ -469,6 +473,7 @@ function App() {
         setReviewAromaNotes(review.aromaNotes ?? '')
         setReviewAppearanceNotes(review.appearanceNotes ?? '')
         setReviewFlavorNotes(review.flavorNotes ?? '')
+        setReviewExists(true)
         setReviewBaseline({
           colorScore: review.colorScore,
           smellScore: review.smellScore,
@@ -493,6 +498,7 @@ function App() {
           setReviewAromaNotes('')
           setReviewAppearanceNotes('')
           setReviewFlavorNotes('')
+          setReviewExists(false)
           setReviewBaseline({
             colorScore: 3,
             smellScore: 3,
@@ -514,6 +520,7 @@ function App() {
         setReviewAromaNotes('')
         setReviewAppearanceNotes('')
         setReviewFlavorNotes('')
+        setReviewExists(false)
         setReviewBaseline({
           colorScore: 3,
           smellScore: 3,
@@ -1091,12 +1098,14 @@ function App() {
     setReviewPending(true)
     try {
       await patchMyBeerReview(selectedEvent.id, selectedBeer.id, payload)
+      setReviewExists(true)
       setReviewBaseline(payload)
       setFeedbackMessage('Vurdering oppdatert.')
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 404) {
         try {
           await createBeerReview(selectedEvent.id, selectedBeer.id, payload)
+          setReviewExists(true)
           setReviewBaseline(payload)
           setFeedbackMessage('Vurdering lagret.')
           return
@@ -1407,7 +1416,7 @@ function App() {
                           placeholder="Smaksnotater og avslutning"
                         />
 
-                        {reviewDirty || reviewPending ? (
+                        {reviewDirty || reviewPending || !reviewExists ? (
                           <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
                             {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
                           </button>

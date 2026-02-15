@@ -979,8 +979,6 @@ describe('App core flows', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
 
-    expect(screen.queryByRole('button', { name: 'Lagre vurdering' })).not.toBeInTheDocument()
-
     fireEvent.click(await screen.findByRole('radio', { name: 'Farge 5 av 6' }))
     fireEvent.click(screen.getByRole('radio', { name: 'Lukt 5 av 6' }))
     fireEvent.click(screen.getByRole('radio', { name: 'Smak 5 av 6' }))
@@ -989,7 +987,6 @@ describe('App core flows', () => {
     fireEvent.change(screen.getByLabelText('Aroma (valgfritt)'), { target: { value: 'Sitrus' } })
     fireEvent.change(screen.getByLabelText('Utseende (valgfritt)'), { target: { value: 'Gylden' } })
     fireEvent.change(screen.getByLabelText('Smak (valgfritt)'), { target: { value: 'Frisk avslutning' } })
-    expect(await screen.findByRole('button', { name: 'Lagre vurdering' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Lagre vurdering' }))
 
     expect(await screen.findByText('Vurdering lagret.')).toBeInTheDocument()
