@@ -15,6 +15,7 @@ Specify the end-to-end MVP behavior for collaborative beer tasting events in Ols
   - regenerate join code/link
   - remove participant
   - adjust event status (`Open`/`Closed`)
+  - delete event (owner/admin only)
 - Optional open-event mode and listing support.
 
 ### Out of Scope
@@ -73,6 +74,7 @@ Specify the end-to-end MVP behavior for collaborative beer tasting events in Ols
   - beer reviews
 - Suggested endpoint set (MVP):
   - `POST /api/events`
+  - `DELETE /api/events/{eventId}`
   - `GET /api/events/{eventId}`
   - `POST /api/events/{eventId}/join`
   - `POST /api/events/{eventId}/regenerate-code`
