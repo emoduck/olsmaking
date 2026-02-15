@@ -215,6 +215,12 @@ export function buildLoginUrl(returnUrl = window.location.pathname + window.loca
   return `/api/auth/login?${params.toString()}`
 }
 
+export function buildLogoutUrl(returnUrl = window.location.pathname + window.location.search): string {
+  const safeReturnUrl = returnUrl === '/signin-oidc' || returnUrl === '/signout-callback-oidc' ? '/' : returnUrl
+  const params = new URLSearchParams({ returnUrl: safeReturnUrl })
+  return `/api/auth/logout?${params.toString()}`
+}
+
 export function getCurrentUser(): Promise<CurrentUser> {
   return requestJson<CurrentUser>('/api/users/me', { method: 'GET' })
 }

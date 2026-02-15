@@ -4,6 +4,7 @@ import {
   addBeerFavorite,
   ApiClientError,
   buildLoginUrl,
+  buildLogoutUrl,
   createBeerReview,
   createEvent,
   createEventBeer,
@@ -477,6 +478,7 @@ function App() {
   }, [])
 
   const loginUrl = buildLoginUrl()
+  const logoutUrl = buildLogoutUrl()
 
   function renderPrimaryNavItems() {
     return (
@@ -764,9 +766,6 @@ function App() {
           <p className={styles.kicker}>Ølsmaking</p>
           <h1 className={styles.title}>Hei {user?.nickname ?? 'smaker'}</h1>
         </div>
-        <a className={styles.linkButton} href={loginUrl}>
-          Bytt konto
-        </a>
       </header>
 
       {isLargeScreen ? <nav className={styles.desktopNav} aria-label="Hovednavigasjon">{renderPrimaryNavItems()}</nav> : null}
@@ -1186,6 +1185,12 @@ function App() {
 
             <button type="submit" className={styles.buttonPrimary} disabled={profilePending}>
               {profilePending ? 'Lagrer...' : 'Lagre profil'}
+            </button>
+          </form>
+
+          <form className={styles.form} method="post" action={logoutUrl}>
+            <button type="submit" className={styles.buttonSecondary}>
+              Logg ut
             </button>
           </form>
         </section>

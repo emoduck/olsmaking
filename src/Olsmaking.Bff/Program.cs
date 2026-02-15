@@ -85,6 +85,16 @@ if (auth0Settings.IsConfigured)
 
                 return Task.CompletedTask;
             };
+
+            options.Events.OnRedirectToIdentityProviderForSignOut = context =>
+            {
+                if (!string.IsNullOrWhiteSpace(auth0Settings.ClientId))
+                {
+                    context.ProtocolMessage.ClientId = auth0Settings.ClientId;
+                }
+
+                return Task.CompletedTask;
+            };
         });
 }
 else

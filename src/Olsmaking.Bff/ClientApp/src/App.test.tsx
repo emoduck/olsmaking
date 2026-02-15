@@ -244,6 +244,12 @@ describe('App core flows', () => {
 
     expect(await screen.findByText('test@example.com')).toBeInTheDocument()
     expect(screen.getByLabelText('Kallenavn')).toHaveValue('Testbruker')
+
+    const logoutButton = screen.getByRole('button', { name: 'Logg ut' })
+    const logoutForm = logoutButton.closest('form')
+    expect(logoutForm).toHaveAttribute('method', 'post')
+    expect(logoutForm).toHaveAttribute('action', '/api/auth/logout?returnUrl=%2F')
+    expect(screen.queryByRole('link', { name: 'Bytt konto' })).not.toBeInTheDocument()
   })
 
   it('submits nickname update via PATCH and shows confirmation', async () => {
