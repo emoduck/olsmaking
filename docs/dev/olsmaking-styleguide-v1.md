@@ -151,6 +151,7 @@ Define app-wide tokens in a single global stylesheet (for example `src/index.css
 ### Component Folder Structure Conventions
 - Place each reusable component in its own folder under `ClientApp/src/components/<ComponentName>/`.
 - Co-locate the component, styles, story, and test files in that folder (for example `InfoCard.tsx`, `InfoCard.module.css`, `InfoCard.stories.tsx`, `InfoCard.test.tsx`).
+- Do not place component stories in `ClientApp/src/stories`; use co-located stories under each component folder.
 - Add `index.ts` in each component folder and re-export from it.
 - Maintain a root `ClientApp/src/components/index.ts` that re-exports each component and related public types.
 - Prefer imports through the component barrel (`./components`) or folder barrel (`./components/<ComponentName>`) rather than direct deep file paths.

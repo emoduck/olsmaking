@@ -48,8 +48,10 @@ Dev proxy behavior:
 
 ## Storybook Scope
 - Storybook is local-only for now.
+- Stories are co-located with components under `src/components/<ComponentName>/<ComponentName>.stories.tsx`.
+- `src/stories` is not used in this repository.
 - Focus stories on simple/presentational view components.
-- Do not treat container/page components as Storybook targets by default.
+- Container/page components may be exempt only when they are orchestration-only and the exemption reason is explicit in task output.
 
 ## Styling Conventions
 - Standard: CSS Modules are the default approach for component and feature styles.

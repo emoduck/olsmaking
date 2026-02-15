@@ -80,6 +80,10 @@ low / medium / high
 **Touched Paths**
 List edited files (or state `none` for research-only tasks)
 
+**Storybook Coverage**
+For tasks touching `src/Olsmaking.Bff/ClientApp/src/components/**`, list each affected component path with status `added`, `updated`, `already-exists`, or `exempt`.
+If `exempt`, include `container-only` and a one-line reason.
+
 **Validation Evidence**
 Commands executed + pass/fail status (or explicit reason not run)
 
@@ -233,6 +237,7 @@ Reviewer must:
 * identify correctness risks
 * confirm tests/error handling coverage
 * confirm docs/dev feature doc exists/updated
+* confirm Storybook coverage is reported for changed reusable components under `src/Olsmaking.Bff/ClientApp/src/components/**`; reject missing/vague exemptions
 * provide risk rating
 
 Testing agent must:
@@ -444,3 +449,13 @@ A delegated task is complete only if:
 5. Confidence and risk rating are included
 6. Required documentation updates are completed
 7. Applicable validation gates were run (or explicitly justified)
+8. For changes under `src/Olsmaking.Bff/ClientApp/src/components/**`, Storybook coverage is explicit per component (`added`, `updated`, `already-exists`, or `exempt` with `container-only` reason)
+
+## Storybook Coverage Rule (Prompt-Level, Required)
+
+For any task that adds or modifies reusable components under `src/Olsmaking.Bff/ClientApp/src/components/**`:
+
+* Add or update a co-located story file: `src/Olsmaking.Bff/ClientApp/src/components/<ComponentName>/<ComponentName>.stories.tsx`, or
+* Mark the component as `exempt` only when it is truly container-only/orchestration-oriented and include a one-line reason in `Storybook Coverage`.
+
+Exemptions are not allowed for presentational/reusable view components.
