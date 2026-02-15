@@ -26,6 +26,7 @@ Plan deep-link support that opens a specific event workspace directly from exter
 - Phase 2 deep-link target should open single event context for the specified `eventId`.
 - Chosen shape in this phase: `/arrangementer/<eventId>`.
 - On valid access, workspace loads with existing event details/beer/review hydration behavior.
+- In single-event mode, workspace renders without event list clutter and provides an icon-only back affordance to `/arrangementer`.
 - On not found or forbidden, user sees dedicated deep-link error messaging and remains in overview context.
 - On unauthenticated state, login flow should preserve return URL and return user to the deep link.
 

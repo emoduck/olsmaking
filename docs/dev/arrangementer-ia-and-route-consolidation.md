@@ -20,7 +20,7 @@ Clarify information architecture by making `Oversikt` a dashboard and consolidat
 ## UI / Behavior Notes
 - `Oversikt` shows dashboard summary and embedded event list.
 - `Arrangementer` shows full event list plus create/join forms.
-- `Arrangementer/<eventId>` shows only the selected workspace and a back button to `/arrangementer`.
+- `Arrangementer/<eventId>` shows only the selected workspace and an icon-only back button (left arrow) to `/arrangementer`.
 - Legacy query route `/oversikt?eventId=<id>` is ignored and renders plain `/oversikt`.
 
 ## Backend / API Impact

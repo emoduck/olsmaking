@@ -1003,12 +1003,16 @@ function App() {
             <h2 className={styles.sectionTitle}>Arrangement</h2>
             <button
               type="button"
-              className={styles.buttonSecondary}
+              className={styles.iconButtonSecondary}
+              aria-label="Tilbake til arrangementer"
+              title="Tilbake til arrangementer"
               onClick={() => {
                 navigateToTab('arrangement')
               }}
             >
-              Tilbake til arrangementer
+              <svg className={styles.iconButtonArrow} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M15 6 9 12l6 6" />
+              </svg>
             </button>
           </div>
           <p className={styles.eventName}>{selectedEvent.name}</p>
