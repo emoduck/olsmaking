@@ -240,6 +240,31 @@ function App() {
   const [reviewAppearanceNotes, setReviewAppearanceNotes] = useState('')
   const [reviewFlavorNotes, setReviewFlavorNotes] = useState('')
   const [reviewPending, setReviewPending] = useState(false)
+  const [reviewBaseline, setReviewBaseline] = useState<UpsertBeerReviewRequest | null>(null)
+  const reviewDirty = useMemo(() => {
+    if (!reviewBaseline) {
+      return false
+    }
+
+    return reviewBaseline.colorScore !== reviewColorScore
+      || reviewBaseline.smellScore !== reviewSmellScore
+      || reviewBaseline.tasteScore !== reviewTasteScore
+      || reviewBaseline.totalScore !== reviewTotalScore
+      || (reviewBaseline.notes ?? '') !== trimOptional(reviewNotes)
+      || (reviewBaseline.aromaNotes ?? '') !== trimOptional(reviewAromaNotes)
+      || (reviewBaseline.appearanceNotes ?? '') !== trimOptional(reviewAppearanceNotes)
+      || (reviewBaseline.flavorNotes ?? '') !== trimOptional(reviewFlavorNotes)
+  }, [
+    reviewBaseline,
+    reviewColorScore,
+    reviewSmellScore,
+    reviewTasteScore,
+    reviewTotalScore,
+    reviewNotes,
+    reviewAromaNotes,
+    reviewAppearanceNotes,
+    reviewFlavorNotes,
+  ])
 
   const queryValues = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
@@ -413,6 +438,16 @@ function App() {
       setReviewAromaNotes('')
       setReviewAppearanceNotes('')
       setReviewFlavorNotes('')
+      setReviewBaseline({
+        colorScore: 3,
+        smellScore: 3,
+        tasteScore: 3,
+        totalScore: 3,
+        notes: null,
+        aromaNotes: null,
+        appearanceNotes: null,
+        flavorNotes: null,
+      })
       return () => {
         isActive = false
       }
@@ -434,6 +469,16 @@ function App() {
         setReviewAromaNotes(review.aromaNotes ?? '')
         setReviewAppearanceNotes(review.appearanceNotes ?? '')
         setReviewFlavorNotes(review.flavorNotes ?? '')
+        setReviewBaseline({
+          colorScore: review.colorScore,
+          smellScore: review.smellScore,
+          tasteScore: review.tasteScore,
+          totalScore: review.totalScore,
+          notes: review.notes ?? null,
+          aromaNotes: review.aromaNotes ?? null,
+          appearanceNotes: review.appearanceNotes ?? null,
+          flavorNotes: review.flavorNotes ?? null,
+        })
       } catch (error) {
         if (!isActive) {
           return
@@ -448,6 +493,16 @@ function App() {
           setReviewAromaNotes('')
           setReviewAppearanceNotes('')
           setReviewFlavorNotes('')
+          setReviewBaseline({
+            colorScore: 3,
+            smellScore: 3,
+            tasteScore: 3,
+            totalScore: 3,
+            notes: null,
+            aromaNotes: null,
+            appearanceNotes: null,
+            flavorNotes: null,
+          })
           return
         }
 
@@ -459,6 +514,16 @@ function App() {
         setReviewAromaNotes('')
         setReviewAppearanceNotes('')
         setReviewFlavorNotes('')
+        setReviewBaseline({
+          colorScore: 3,
+          smellScore: 3,
+          tasteScore: 3,
+          totalScore: 3,
+          notes: null,
+          aromaNotes: null,
+          appearanceNotes: null,
+          flavorNotes: null,
+        })
 
         if (error instanceof ApiClientError && error.status >= 500) {
           return
@@ -1026,11 +1091,13 @@ function App() {
     setReviewPending(true)
     try {
       await patchMyBeerReview(selectedEvent.id, selectedBeer.id, payload)
+      setReviewBaseline(payload)
       setFeedbackMessage('Vurdering oppdatert.')
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 404) {
         try {
           await createBeerReview(selectedEvent.id, selectedBeer.id, payload)
+          setReviewBaseline(payload)
           setFeedbackMessage('Vurdering lagret.')
           return
         } catch (createError) {
@@ -1340,9 +1407,11 @@ function App() {
                           placeholder="Smaksnotater og avslutning"
                         />
 
-                        <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
-                          {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
-                        </button>
+                        {reviewDirty || reviewPending ? (
+                          <button type="submit" className={styles.buttonPrimary} disabled={reviewPending}>
+                            {reviewPending ? 'Lagrer...' : 'Lagre vurdering'}
+                          </button>
+                        ) : null}
                       </form>
                     </div>
                   ) : null}
