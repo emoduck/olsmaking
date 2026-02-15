@@ -985,4 +985,155 @@ describe('App core flows', () => {
     expect(await screen.findByRole('button', { name: 'Skjul legg til øl' })).toBeInTheDocument()
     expect(screen.getByLabelText('Navn på øl')).toHaveValue('')
   })
+
+  it('submits selected preset style when adding beer', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'POST',
+        url: '/api/events/event-1/beers',
+        response: jsonResponse({
+          id: 'beer-2',
+          eventId: 'event-1',
+          name: 'Ny surøl',
+          brewery: null,
+          style: 'Surøl',
+          abv: null,
+          createdUtc: '2026-01-01T11:00:00Z',
+        }),
+      },
+      {
+        url: '/api/events/event-1/beers/beer-2/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis legg til øl' }))
+    fireEvent.change(await screen.findByLabelText('Navn på øl'), { target: { value: 'Ny surøl' } })
+    fireEvent.change(screen.getByLabelText('Stil (valgfritt)'), { target: { value: 'Surøl' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Legg til øl' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/beers')).toBeTruthy()
+    })
+
+    const createBeerCall = getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/beers')
+    const requestBody = JSON.parse((((createBeerCall?.[1] as RequestInit | undefined)?.body ?? '{}') as string)) as {
+      style?: string | null
+    }
+
+    expect(requestBody.style).toBe('Surøl')
+  })
+
+  it('submits custom style when Annet is selected', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'POST',
+        url: '/api/events/event-1/beers',
+        response: jsonResponse({
+          id: 'beer-2',
+          eventId: 'event-1',
+          name: 'Funky one-off',
+          brewery: null,
+          style: 'Farmhouse Hybrid',
+          abv: null,
+          createdUtc: '2026-01-01T11:00:00Z',
+        }),
+      },
+      {
+        url: '/api/events/event-1/beers/beer-2/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis legg til øl' }))
+    fireEvent.change(await screen.findByLabelText('Navn på øl'), { target: { value: 'Funky one-off' } })
+    fireEvent.change(screen.getByLabelText('Stil (valgfritt)'), { target: { value: 'Annet' } })
+    fireEvent.change(await screen.findByLabelText('Egendefinert stil'), { target: { value: 'Farmhouse Hybrid' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Legg til øl' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/beers')).toBeTruthy()
+    })
+
+    const createBeerCall = getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/beers')
+    const requestBody = JSON.parse((((createBeerCall?.[1] as RequestInit | undefined)?.body ?? '{}') as string)) as {
+      style?: string | null
+    }
+
+    expect(requestBody.style).toBe('Farmhouse Hybrid')
+  })
+
+  it('shows validation error when Annet is selected without custom style', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'POST',
+        url: '/api/events/event-1/beers',
+        response: jsonResponse({
+          id: 'beer-2',
+          eventId: 'event-1',
+          name: 'Skal ikke opprettes',
+          brewery: null,
+          style: 'Ugyldig',
+          abv: null,
+          createdUtc: '2026-01-01T11:00:00Z',
+        }),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis legg til øl' }))
+    fireEvent.change(await screen.findByLabelText('Navn på øl'), { target: { value: 'Udefinert stil' } })
+    fireEvent.change(screen.getByLabelText('Stil (valgfritt)'), { target: { value: 'Annet' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Legg til øl' }))
+
+    expect(await screen.findByText('Skriv inn en stil når du velger Annet.')).toBeInTheDocument()
+    expect(getCallByMethodAndPath(fetchMock, 'POST', '/api/events/event-1/beers')).toBeFalsy()
+  })
 })

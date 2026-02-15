@@ -123,6 +123,30 @@ const PARTICIPANT_STATUS_LABELS: Record<number, string> = {
   2: 'Fjernet',
 }
 
+const BEER_STYLE_OPTIONS = [
+  'Lager',
+  'Pilsner',
+  'Hveteøl',
+  'Blonde Ale',
+  'Pale Ale',
+  'IPA',
+  'Amber Ale',
+  'Brown Ale',
+  'Porter',
+  'Stout',
+  'Belgisk Ale',
+  'Saison',
+  'Surøl',
+  'Wild Ale',
+  'Fruktøl',
+  'Krydret øl',
+  'Røykøl',
+  'Fatlagret øl',
+  'Historisk øl',
+  'Spesialøl',
+  'Annet',
+] as const
+
 function getApiMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.problem?.errors) {
@@ -198,7 +222,8 @@ function App() {
 
   const [beerName, setBeerName] = useState('')
   const [beerBrewery, setBeerBrewery] = useState('')
-  const [beerStyle, setBeerStyle] = useState('')
+  const [beerStylePreset, setBeerStylePreset] = useState('')
+  const [beerStyleCustom, setBeerStyleCustom] = useState('')
   const [beerAbv, setBeerAbv] = useState('')
   const [addBeerPending, setAddBeerPending] = useState(false)
   const [isAddBeerFormOpen, setIsAddBeerFormOpen] = useState(false)
@@ -884,12 +909,25 @@ function App() {
       abvValue = parsed
     }
 
+    let styleValue: string | null = null
+
+    if (beerStylePreset === 'Annet') {
+      if (!beerStyleCustom.trim()) {
+        setErrorMessage('Skriv inn en stil når du velger Annet.')
+        return
+      }
+
+      styleValue = beerStyleCustom.trim()
+    } else if (beerStylePreset) {
+      styleValue = beerStylePreset
+    }
+
     setAddBeerPending(true)
     try {
       const created = await createEventBeer(selectedEvent.id, {
         name: beerName.trim(),
         brewery: trimOptional(beerBrewery),
-        style: trimOptional(beerStyle),
+        style: styleValue,
         abv: abvValue,
       })
 
@@ -897,7 +935,8 @@ function App() {
       setSelectedBeerId(created.id)
       setBeerName('')
       setBeerBrewery('')
-      setBeerStyle('')
+      setBeerStylePreset('')
+      setBeerStyleCustom('')
       setBeerAbv('')
       setFeedbackMessage('Øl lagt til i arrangementet.')
     } catch (error) {
@@ -1291,15 +1330,42 @@ function App() {
               <label className={styles.label} htmlFor="beer-style">
                 Stil (valgfritt)
               </label>
-              <input
+              <select
                 id="beer-style"
                 className={styles.input}
-                value={beerStyle}
+                value={beerStylePreset}
                 onChange={(event) => {
-                  setBeerStyle(event.target.value)
+                  setBeerStylePreset(event.target.value)
+                  if (event.target.value !== 'Annet') {
+                    setBeerStyleCustom('')
+                  }
                 }}
-                maxLength={100}
-              />
+              >
+                <option value="">Velg stil (valgfritt)</option>
+                {BEER_STYLE_OPTIONS.map((styleOption) => (
+                  <option key={styleOption} value={styleOption}>
+                    {styleOption}
+                  </option>
+                ))}
+              </select>
+
+              {beerStylePreset === 'Annet' ? (
+                <>
+                  <label className={styles.label} htmlFor="beer-style-custom">
+                    Egendefinert stil
+                  </label>
+                  <input
+                    id="beer-style-custom"
+                    className={styles.input}
+                    value={beerStyleCustom}
+                    onChange={(event) => {
+                      setBeerStyleCustom(event.target.value)
+                    }}
+                    maxLength={100}
+                    placeholder="Skriv inn stil"
+                  />
+                </>
+              ) : null}
 
               <label className={styles.label} htmlFor="beer-abv">
                 ABV (valgfritt)
