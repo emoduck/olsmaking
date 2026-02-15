@@ -30,7 +30,7 @@ import {
   type EventSummary,
   type FavoriteBeerSummary,
 } from './api/client'
-import { StarScoreSlider } from './components/StarScoreSlider'
+import { StarScoreSlider } from './components'
 import styles from './App.module.css'
 
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated' | 'error'

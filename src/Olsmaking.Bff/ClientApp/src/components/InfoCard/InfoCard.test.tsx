@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { InfoCard } from './InfoCard'
+import { InfoCard } from '.'
 
 describe('InfoCard', () => {
   it('renders title and descriptive content', () => {

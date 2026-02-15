@@ -148,6 +148,13 @@ Define app-wide tokens in a single global stylesheet (for example `src/index.css
 - Do not add new broad global selectors for feature styling.
 - Use module classes for state variants (`.isActive`, `.isDisabled`) instead of page-wide selectors.
 
+### Component Folder Structure Conventions
+- Place each reusable component in its own folder under `ClientApp/src/components/<ComponentName>/`.
+- Co-locate the component, styles, story, and test files in that folder (for example `InfoCard.tsx`, `InfoCard.module.css`, `InfoCard.stories.tsx`, `InfoCard.test.tsx`).
+- Add `index.ts` in each component folder and re-export from it.
+- Maintain a root `ClientApp/src/components/index.ts` that re-exports each component and related public types.
+- Prefer imports through the component barrel (`./components`) or folder barrel (`./components/<ComponentName>`) rather than direct deep file paths.
+
 ### Accessibility Baseline
 - Touch targets: minimum `44x44px`.
 - Contrast targets: WCAG AA (`4.5:1` normal text; `3:1` large text).

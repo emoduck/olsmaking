@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { InfoCard } from './InfoCard'
+import { InfoCard } from '.'
 
 const meta = {
   title: 'View/InfoCard',
