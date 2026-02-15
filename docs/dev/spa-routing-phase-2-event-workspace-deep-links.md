@@ -1,5 +1,9 @@
 # SPA Routing Phase 2: Event Workspace Deep Links
 
+## Implementation Status
+- In progress
+- Current implementation target: query-based deep links on overview (`/oversikt?eventId=<id>`)
+
 ## Purpose
 Plan deep-link support that opens a specific event workspace directly from external links while preserving Phase 1 primary-tab routing behavior.
 
@@ -20,9 +24,9 @@ Plan deep-link support that opens a specific event workspace directly from exter
 - Entry points include external links and manual URL entry.
 - Primary route remains URL-driven from Phase 1 (`/oversikt`, `/arrangement`, `/favoritter`, `/profil`).
 - Phase 2 deep-link target should open overview context with event workspace loaded for the specified `eventId`.
-- Recommended initial shape: `/oversikt?eventId=<guid>`.
+- Chosen shape in this phase: `/oversikt?eventId=<id>`.
 - On valid access, workspace loads with existing event details/beer/review hydration behavior.
-- On not found or forbidden, user sees existing error messaging and remains in overview context.
+- On not found or forbidden, user sees dedicated deep-link error messaging and remains in overview context.
 - On unauthenticated state, login flow should preserve return URL and return user to the deep link.
 
 ## Backend / API Impact
@@ -34,12 +38,18 @@ Plan deep-link support that opens a specific event workspace directly from exter
 - Phase 1 route foundation is implemented first.
 - Existing event authorization rules remain source of truth (`docs/adr/ADR-005-event-authorization-and-lifecycle.md`).
 - Existing SPA routing decision remains valid (`docs/adr/ADR-007-spa-tab-routing-and-deep-link-support.md`).
-- Event identifier format remains GUID and is validated client-side before hydration attempts.
+- Event identifier validation is currently backend-driven; client does not enforce strict GUID format in this phase.
+
+## Acceptance Criteria
+- Direct-open of `/oversikt?eventId=<id>` hydrates the event workspace when access is valid.
+- Selecting or opening an event workspace from UI updates URL to `/oversikt?eventId=<id>`.
+- Forbidden deep links show explicit access error text.
+- Unauthenticated deep links preserve `returnUrl` through login redirect.
+- Existing primary tab routing behavior from Phase 1 continues to work unchanged.
 
 ## Open Questions
-- Should Phase 2 stay query-based (`/oversikt?eventId=...`) or move to path-based (`/oversikt/<eventId>`) for long-term consistency?
-- Should invalid `eventId` format fail fast in the client before any request, or rely fully on backend validation?
-- Should a successful deep-link load update browser title/state with event name in this phase?
+- Should long-term route shape move from query-based (`/oversikt?eventId=...`) to path-based (`/oversikt/<eventId>`) after Phase 2 stabilization?
+- Should successful workspace deep-link hydration update browser title with event name in a later phase?
 
 ## Validation Plan
 - Frontend: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`

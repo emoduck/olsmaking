@@ -229,6 +229,62 @@ describe('App core flows', () => {
     expect(window.location.pathname).toBe('/oversikt')
   })
 
+  it('hydrates workspace when app boots on /oversikt?eventId=<id>', async () => {
+    window.history.pushState({}, '', '/oversikt?eventId=event-1')
+
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
+  })
+
+  it('shows dedicated error when deep-linked event is forbidden', async () => {
+    window.history.pushState({}, '', '/oversikt?eventId=event-1')
+
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse({ title: 'Forbidden' }, 403) },
+      { url: '/api/events/event-1/beers', response: jsonResponse({ title: 'Forbidden' }, 403) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse({ title: 'Forbidden' }, 403) },
+    ])
+
+    render(<App />)
+
+    expect(await screen.findByText('Du har ikke tilgang til arrangementet i lenken.')).toBeInTheDocument()
+  })
+
+  it('keeps deep-link returnUrl for unauthenticated users', async () => {
+    window.history.pushState({}, '', '/oversikt?eventId=event-1')
+
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse({ title: 'Unauthorized' }, 401) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+    ])
+
+    render(<App />)
+
+    const loginLink = await screen.findByRole('link', { name: 'Logg inn' })
+    expect(loginLink).toHaveAttribute('href', '/api/auth/login?returnUrl=%2Foversikt%3FeventId%3Devent-1')
+  })
+
   it('updates URL on tab click and syncs tab from popstate', async () => {
     installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },
@@ -343,6 +399,9 @@ describe('App core flows', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Favoritter' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Åpen arbeidsflate' }))
 
+    expect(window.location.pathname).toBe('/oversikt')
+    expect(window.location.search).toBe('?eventId=event-1')
+
     await waitFor(() => {
       expect(getCallByMethodAndPath(fetchMock, 'GET', '/api/events/event-1')).toBeTruthy()
       expect(getCallByMethodAndPath(fetchMock, 'GET', '/api/events/event-1/beers')).toBeTruthy()
@@ -381,6 +440,55 @@ describe('App core flows', () => {
 
     expect(await screen.findByText('Du ble med i arrangementet.')).toBeInTheDocument()
     expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/oversikt')
+    expect(window.location.search).toBe('?eventId=event-1')
+  })
+
+  it('loads workspace when event favorites endpoint returns 500', async () => {
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse({ title: 'Server error' }, 500) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
+    expect(screen.queryByText('Tjenesten er midlertidig utilgjengelig.')).not.toBeInTheDocument()
+  })
+
+  it('does not show global error when review lookup returns 500', async () => {
+    installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([openEvent]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(eventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      { url: '/api/events/event-1/beers/beer-1/reviews/me', response: jsonResponse({ title: 'Server error' }, 500) },
+    ])
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    expect(await screen.findByText('Bli-med-kode: ABCD1234')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByText('Tjenesten er midlertidig utilgjengelig.')).not.toBeInTheDocument()
+    })
   })
 
   it('sends POST then DELETE when toggling favorite', async () => {
@@ -412,6 +520,11 @@ describe('App core flows', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Oversikt' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/oversikt')
+      expect(window.location.search).toBe('?eventId=event-1')
+    })
 
     const addButton = await screen.findByRole('button', { name: 'Lagre Pale Ale som favoritt' })
     fireEvent.click(addButton)

@@ -1,5 +1,9 @@
 # SPA Routing Foundation
 
+## Implementation Status
+- Complete (Phase 1)
+- Follow-up execution: `docs/dev/spa-routing-phase-2-event-workspace-deep-links.md`
+
 ## Purpose
 Enable proper, linkable SPA navigation so primary views can be opened directly from external links and restored through browser history.
 
@@ -36,8 +40,8 @@ Enable proper, linkable SPA navigation so primary views can be opened directly f
 - Route names use Norwegian path slugs aligned with current UI naming.
 
 ## Open Questions
-- Should `/` be canonicalized to `/arrangement` via replace-state, or remain `/` while rendering arrangement content?
-- Should unknown client paths redirect to `/arrangement` or show a dedicated not-found view in a later phase?
+- Canonicalization to `/arrangement` is implemented.
+- Unknown client paths currently resolve to arrangement-first route.
 
 ## Validation Plan
 - Frontend: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`

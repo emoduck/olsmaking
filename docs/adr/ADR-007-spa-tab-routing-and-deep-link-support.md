@@ -1,7 +1,7 @@
 # ADR-007: SPA tab routing and deep-link support
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 The current frontend uses local component state for primary tab selection. This means tab state is not represented in the URL, so external links cannot reliably open a specific tab such as `Oversikt`.
@@ -16,6 +16,7 @@ Adopt URL-driven client-side routing for primary tab navigation.
 Decision details:
 - Represent primary tabs with explicit client routes: `/oversikt`, `/arrangement`, `/favoritter`, `/profil`.
 - Treat URL pathname as the source of truth for active primary tab.
+- For event workspace deep links, use query-based route shape in this phase: `/oversikt?eventId=<id>`.
 - Preserve existing backend route boundaries (`/api`, auth callback paths) and do not route those through client navigation.
 - Keep existing BFF SPA fallback behavior so direct open/refresh on client routes resolves correctly.
 - Keep current F1-first hosting posture with no additional Azure resources or tier upgrades.

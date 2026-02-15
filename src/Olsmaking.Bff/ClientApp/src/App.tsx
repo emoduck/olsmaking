@@ -43,6 +43,30 @@ const TAB_ROUTES: Record<PrimaryTab, string> = {
   profil: '/profil',
 }
 
+function getOverviewDeepLinkEventId(search: string): string {
+  const params = new URLSearchParams(search)
+  return params.get('eventId')?.trim() ?? ''
+}
+
+function buildTabUrl(tab: PrimaryTab, options?: { eventId?: string }): string {
+  const path = TAB_ROUTES[tab]
+
+  if (tab !== 'oversikt') {
+    return path
+  }
+
+  const eventId = options?.eventId?.trim()
+
+  if (!eventId) {
+    return path
+  }
+
+  const params = new URLSearchParams()
+  params.set('eventId', eventId)
+
+  return `${path}?${params.toString()}`
+}
+
 function getPrimaryTabFromPath(pathname: string): PrimaryTab {
   const normalizedPath = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname
 
@@ -189,25 +213,26 @@ function App() {
     return favoritesDateFormatter.format(parsed)
   }
 
-  function navigateToTab(nextTab: PrimaryTab, options?: { replace?: boolean }) {
+  function navigateToTab(nextTab: PrimaryTab, options?: { replace?: boolean; eventId?: string }) {
     setActiveTab(nextTab)
 
     if (typeof window === 'undefined') {
       return
     }
 
-    const targetPath = TAB_ROUTES[nextTab]
+    const targetUrl = buildTabUrl(nextTab, { eventId: options?.eventId })
+    const currentUrl = `${window.location.pathname}${window.location.search}`
 
-    if (window.location.pathname === targetPath) {
+    if (currentUrl === targetUrl) {
       return
     }
 
     if (options?.replace) {
-      window.history.replaceState(window.history.state, '', targetPath)
+      window.history.replaceState(window.history.state, '', targetUrl)
       return
     }
 
-    window.history.pushState(window.history.state, '', targetPath)
+    window.history.pushState(window.history.state, '', targetUrl)
   }
 
   useEffect(() => {
@@ -235,6 +260,56 @@ function App() {
       window.removeEventListener('popstate', handlePopState)
     }
   }, [])
+
+  useEffect(() => {
+    if (authState !== 'authenticated' || activeTab !== 'oversikt') {
+      return
+    }
+
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const deepLinkEventId = getOverviewDeepLinkEventId(window.location.search)
+
+    if (!deepLinkEventId || deepLinkEventId === selectedEventId) {
+      return
+    }
+
+    let isActive = true
+
+    setFeedbackMessage(null)
+    setErrorMessage(null)
+
+    async function hydrateDeepLinkedWorkspace() {
+      try {
+        await loadEventWorkspace(deepLinkEventId)
+      } catch (error) {
+        if (!isActive) {
+          return
+        }
+
+        if (error instanceof ApiClientError && error.status === 403) {
+          setErrorMessage('Du har ikke tilgang til arrangementet i lenken.')
+          return
+        }
+
+        if (error instanceof ApiClientError && error.status === 404) {
+          setErrorMessage('Arrangementet i lenken finnes ikke lenger.')
+          return
+        }
+
+        setErrorMessage(getApiMessage(error))
+      }
+    }
+
+    void hydrateDeepLinkedWorkspace()
+
+    return () => {
+      isActive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- avoids re-trigger loops from function identity changes.
+  }, [activeTab, authState, selectedEventId])
 
   useEffect(() => {
     let isActive = true
@@ -294,6 +369,11 @@ function App() {
         setReviewAromaNotes('')
         setReviewAppearanceNotes('')
         setReviewFlavorNotes('')
+
+        if (error instanceof ApiClientError && error.status >= 500) {
+          return
+        }
+
         setErrorMessage(getApiMessage(error))
       }
     }
@@ -330,11 +410,17 @@ function App() {
     setWorkspacePending(true)
     setFavoritePendingBeerIds([])
     try {
-      const [eventDetails, beers, favorites] = await Promise.all([
-        getEvent(eventId),
-        getEventBeers(eventId),
-        getMyEventFavorites(eventId),
-      ])
+      const [eventDetails, beers] = await Promise.all([getEvent(eventId), getEventBeers(eventId)])
+      let favorites: string[] = []
+
+      try {
+        favorites = await getMyEventFavorites(eventId)
+      } catch (error) {
+        if (error instanceof ApiClientError && error.status < 500) {
+          throw error
+        }
+      }
+
       setSelectedEvent(eventDetails)
       setBeerList(beers)
       setFavoriteBeerIds(favorites)
@@ -618,7 +704,7 @@ function App() {
     try {
       const created = await createEvent(createName.trim())
       setCreateName('')
-      navigateToTab('oversikt')
+      navigateToTab('oversikt', { eventId: created.id })
       setFeedbackMessage('Arrangementet er opprettet.')
       await loadEventWorkspace(created.id)
     } catch (error) {
@@ -642,7 +728,7 @@ function App() {
     try {
       const result = await joinEvent(joinEventId.trim(), joinCode.trim())
       await loadEventWorkspace(result.eventId)
-      navigateToTab('oversikt')
+      navigateToTab('oversikt', { eventId: result.eventId })
       setFeedbackMessage(result.joined ? 'Du ble med i arrangementet.' : 'Du er allerede med i arrangementet.')
     } catch (error) {
       setErrorMessage(getApiMessage(error))
@@ -657,6 +743,7 @@ function App() {
 
     try {
       await loadEventWorkspace(eventId)
+      navigateToTab('oversikt', { eventId })
     } catch (error) {
       setErrorMessage(getApiMessage(error))
     }
@@ -665,7 +752,7 @@ function App() {
   async function handleOpenFavoriteWorkspace(eventId: string, eventName: string) {
     setFeedbackMessage(null)
     setErrorMessage(null)
-    navigateToTab('oversikt')
+    navigateToTab('oversikt', { eventId })
 
     try {
       await loadEventWorkspace(eventId)
