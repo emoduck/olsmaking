@@ -254,6 +254,12 @@
   fill: currentColor;
 }
 
+.inlineError {
+  margin: var(--space-8) 0 0;
+  color: var(--color-danger-600);
+  font-size: var(--font-size-14);
+}
+
 .srOnly {
   position: absolute;
   width: 1px;

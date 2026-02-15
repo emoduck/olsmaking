@@ -844,6 +844,42 @@ describe('App core flows', () => {
     expect(screen.queryByRole('button', { name: /Fjern .* fra arrangementet/i })).not.toBeInTheDocument()
   })
 
+  it('shows inline error when delete is blocked by reviews', async () => {
+    const fetchMock = installFetchMock([
+      { url: '/api/users/me', response: jsonResponse(currentUser) },
+      { url: '/api/events/mine', response: jsonResponse([myEvent]) },
+      { url: '/api/events/open', response: jsonResponse([]) },
+      { url: '/api/favorites/mine', response: jsonResponse([]) },
+      { url: '/api/events/event-1', response: jsonResponse(managedEventDetails) },
+      { url: '/api/events/event-1/beers', response: jsonResponse(beers) },
+      { url: '/api/events/event-1/favorites/me', response: jsonResponse([]) },
+      {
+        url: '/api/events/event-1/beers/beer-1/reviews/me',
+        response: jsonResponse({ title: 'Fant ikke vurdering' }, 404),
+      },
+      {
+        method: 'DELETE',
+        url: '/api/events/event-1/beers/beer-1',
+        response: jsonResponse({ title: 'Beer cannot be removed' }, 409),
+      },
+    ])
+
+    const confirmMock = vi.fn(() => true)
+    vi.stubGlobal('confirm', confirmMock)
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrangementer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Vis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Fjern Pale Ale fra arrangementet' }))
+
+    await waitFor(() => {
+      expect(getCallByMethodAndPath(fetchMock, 'DELETE', '/api/events/event-1/beers/beer-1')).toBeTruthy()
+    })
+
+    expect(await screen.findByText('Kan ikke fjerne ølet fordi det allerede har vurderinger.')).toBeInTheDocument()
+  })
+
   it('lets owner remove and restore participants', async () => {
     const fetchMock = installFetchMock([
       { url: '/api/users/me', response: jsonResponse(currentUser) },

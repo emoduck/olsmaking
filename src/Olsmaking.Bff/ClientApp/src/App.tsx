@@ -229,6 +229,7 @@ function App() {
   const [addBeerPending, setAddBeerPending] = useState(false)
   const [isAddBeerFormOpen, setIsAddBeerFormOpen] = useState(false)
   const [deleteBeerPendingId, setDeleteBeerPendingId] = useState('')
+  const [deleteBeerErrorId, setDeleteBeerErrorId] = useState('')
 
   const [reviewColorScore, setReviewColorScore] = useState(3)
   const [reviewSmellScore, setReviewSmellScore] = useState(3)
@@ -963,6 +964,7 @@ function App() {
 
     setFeedbackMessage(null)
     setErrorMessage(null)
+    setDeleteBeerErrorId('')
     setDeleteBeerPendingId(beerId)
 
     try {
@@ -986,7 +988,7 @@ function App() {
       setFeedbackMessage(`${beerName} er fjernet fra arrangementet.`)
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 409) {
-        setErrorMessage('Kan ikke fjerne ølet fordi det allerede har vurderinger.')
+        setDeleteBeerErrorId(beerId)
         return
       }
 
@@ -1237,6 +1239,10 @@ function App() {
                       </button>
                     </div>
                   </div>
+
+                  {deleteBeerErrorId === beer.id ? (
+                    <p className={styles.inlineError}>Kan ikke fjerne ølet fordi det allerede har vurderinger.</p>
+                  ) : null}
 
                   {beer.id === selectedBeerId ? (
                     <div
