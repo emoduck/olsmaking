@@ -985,6 +985,11 @@ function App() {
       setFavoriteList((previous) => previous.filter((favorite) => !(favorite.eventId === selectedEvent.id && favorite.beerId === beerId)))
       setFeedbackMessage(`${beerName} er fjernet fra arrangementet.`)
     } catch (error) {
+      if (error instanceof ApiClientError && error.status === 409) {
+        setErrorMessage('Kan ikke fjerne ølet fordi det allerede har vurderinger.')
+        return
+      }
+
       setErrorMessage(getApiMessage(error))
     } finally {
       setDeleteBeerPendingId('')

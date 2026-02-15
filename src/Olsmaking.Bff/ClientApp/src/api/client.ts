@@ -143,6 +143,10 @@ function getErrorMessage(status: number, problem?: ApiProblemDetails): string {
     return 'Du har ikke tilgang til denne handlingen.'
   }
 
+  if (status === 409) {
+    return 'Handlingen kan ikke fullføres akkurat nå.'
+  }
+
   if (status >= 500) {
     return 'Tjenesten er midlertidig utilgjengelig.'
   }
